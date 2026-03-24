@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python src/data/build_dataset.py --output data/processed/eval_set.jsonl)",
+      "Bash(python3 src/data/build_dataset.py --output data/processed/eval_set.jsonl)",
+      "Bash(where python:*)",
+      "Bash(where python3:*)",
+      "Bash(py --version)",
+      "Bash(/c/Users/salih/AppData/Local/Microsoft/WindowsApps/python.exe src/data/build_dataset.py --output data/processed/eval_set.jsonl)"
+    ]
+  }
+}

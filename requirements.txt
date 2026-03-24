@@ -1,0 +1,9 @@
+# Pipeline (veri hazırlama + metrik hesaplama) — sadece stdlib gerektirir
+# GPU gerektiren model kısımı için aşağıdaki versiyonları kullan (Colab'da)
+
+# Model inference (src/model/setup.py ve demo.py)
+transformers==4.57.1
+torch==2.8.0
+
+# Metrik / değerlendirme (isteğe bağlı, ek analiz için)
+numpy
