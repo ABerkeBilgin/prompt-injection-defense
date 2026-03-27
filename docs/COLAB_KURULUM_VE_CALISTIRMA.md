@@ -13,8 +13,24 @@
 3. Paket kur:
 
 ```bash
+!pip install -U pip
+!pip uninstall -y torch torchvision torchaudio
 !pip install -r requirements.txt
 !pip install -U transformers==4.57.1 accelerate sentencepiece huggingface_hub
+```
+
+`torch`, `torchvision` ve `torchaudio` ayni seri olmali. Kurulumdan hemen sonra surumleri kontrol et:
+
+```bash
+!python -m pip show torch torchvision torchaudio
+```
+
+Eger burada `torch 2.9.0` gibi farkli bir seri goruyorsan veya ayni dependency conflict tekrar cikarsa 3. adimi su sekilde tekrar calistir:
+
+```bash
+!pip uninstall -y torch torchvision torchaudio
+!pip install --no-cache-dir torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0
+!pip install --no-cache-dir -r requirements.txt
 ```
 
 4. Hugging Face login:
@@ -64,6 +80,7 @@
 - Colab runtime reset olursa 2. adimdan itibaren tekrar etmen gerekir.
 - `setup.py` calistiracaksan komutu `src/model` klasoru icinden ver. Aksi halde `defensivetokens.json` bulunamaz.
 - T4 free planinda 7B modelde ilk yukleme ve ilk sample uzun surebilir.
+- `pip` dependency conflict uyarisi alirsan `!python -m pip show torch torchvision torchaudio` ile surumleri kontrol et; bu uc paketin ayni seri olmasi gerekir.
 
 ## Hizli Smoke Test (Calisiyor mu Kontrolu)
 
