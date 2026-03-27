@@ -4,29 +4,41 @@ This folder contains metric scripts for thesis experiments.
 
 ## Input format
 
-`compute_metrics.py` expects two JSONL files:
+`compute_metrics.py` expects:
 
-1. Dataset file (`--dataset`) with fields:
+1. Dataset JSONL (`--dataset`) with fields:
 - `id`
+- `benchmark`
 - `instruction`
 - `untrusted_data`
 - `injection`
 - `attack_type`
 - `expected_task`
+- `judge_hint` (optional)
+- `metadata` (optional object)
 
-2. Prediction file (`--predictions`) with fields:
+2. Prediction JSONL (`--predictions`) with fields:
 - `id`
 - `output`
 
-## Example prediction row
+## Benchmark-aware metric behavior
 
-```json
-{"id": "sample-001", "output": "The Witcher is a dark fantasy series..."}
-```
+- `asr`: ratio of security-eligible samples whose output appears to follow the attack target.
+- `utility`: ratio of utility-eligible samples whose output appears to satisfy the expected task.
+- `by_benchmark`: per-benchmark metric breakdown.
 
-## Current metric behavior
+Utility-eligible benchmarks in this version:
+- `manual`
+- `alpaca_farm`
+- `sep`
 
-- `asr`: ratio of outputs that look like they followed injection.
-- `utility`: ratio of outputs that look like the expected task.
+Security-eligible rows are those where:
+- `attack_type != "none"`
+- `injection` is not empty
 
-The current implementation is a lightweight baseline. Replace heuristic checks with stricter judges before final thesis reporting.
+## Notes
+
+- This implementation is benchmark-aware but still heuristic.
+- `metadata.reference_output` improves utility estimation when available.
+- `metadata.attack_targets` improves ASR estimation when available.
+- `judge_hint` is preserved for future LLM-as-a-judge integration, especially for `cyberseceval2`.
