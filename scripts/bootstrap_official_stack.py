@@ -11,17 +11,31 @@ THIRD_PARTY_ROOT = REPO_ROOT / "third_party"
 DEFENSIVE_TOKEN_ROOT = THIRD_PARTY_ROOT / "DefensiveToken"
 META_SECALIGN_ROOT = THIRD_PARTY_ROOT / "Meta_SecAlign"
 PATCH_STATE_PATH = REPO_ROOT / "patches" / "meta_secalign" / "bootstrap_state.json"
+DEFENSIVE_TOKEN_URL = "https://github.com/Sizhe-Chen/DefensiveToken.git"
+META_SECALIGN_URL = "https://github.com/facebookresearch/Meta_SecAlign.git"
 
 
 def run_git(args: list[str], cwd: Path) -> None:
     subprocess.run(["git", *args], cwd=cwd, check=True)
 
 
-def ensure_repo(path: Path, required_files: list[str], label: str) -> None:
+def clone_repo(url: str, dest: Path, recurse_submodules: bool = False) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    command = ["git", "clone"]
+    if recurse_submodules:
+        command.append("--recurse-submodules")
+    command.extend([url, str(dest)])
+    subprocess.run(command, check=True)
+
+
+def ensure_repo(path: Path, required_files: list[str], label: str, clone_url: str | None = None, recurse_submodules: bool = False) -> None:
     if not path.exists():
-        raise FileNotFoundError(
-            f"{label} repository not found at {path}. Run `git submodule update --init --recursive` first."
-        )
+        if clone_url:
+            clone_repo(clone_url, path, recurse_submodules=recurse_submodules)
+        else:
+            raise FileNotFoundError(
+                f"{label} repository not found at {path}. Run `git submodule update --init --recursive` first."
+            )
     for name in required_files:
         if not (path / name).exists():
             raise FileNotFoundError(f"{label} repository at {path} is missing required file: {name}")
@@ -88,14 +102,26 @@ def main() -> None:
     parser.add_argument("--defensivetoken-ref", default=None)
     parser.add_argument("--apply-patches", action="store_true")
     parser.add_argument("--checkout-refs", action="store_true")
+    parser.add_argument("--clone-missing", action="store_true")
     args = parser.parse_args()
 
     third_party_root = Path(args.third_party_root)
     defensive_root = third_party_root / "DefensiveToken"
     meta_root = third_party_root / "Meta_SecAlign"
 
-    ensure_repo(defensive_root, ["README.md", "setup.py"], "DefensiveToken")
-    ensure_repo(meta_root, ["README.md", "run_tests.py", "test.py", "utils.py"], "Meta_SecAlign")
+    ensure_repo(
+        defensive_root,
+        ["README.md", "setup.py"],
+        "DefensiveToken",
+        clone_url=DEFENSIVE_TOKEN_URL if args.clone_missing else None,
+    )
+    ensure_repo(
+        meta_root,
+        ["README.md", "run_tests.py", "test.py", "utils.py"],
+        "Meta_SecAlign",
+        clone_url=META_SECALIGN_URL if args.clone_missing else None,
+        recurse_submodules=True,
+    )
 
     if args.checkout_refs:
         maybe_checkout(defensive_root, args.defensivetoken_ref)

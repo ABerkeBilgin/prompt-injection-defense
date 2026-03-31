@@ -21,6 +21,13 @@ OPEN_WEIGHT_MODELS = {
 SUMMARY_FILENAME = "summary.tsv"
 
 
+def ensure_official_stack(clone_missing: bool) -> None:
+    command = [sys.executable, "scripts/bootstrap_official_stack.py"]
+    if clone_missing:
+        command.append("--clone-missing")
+    subprocess.run(command, cwd=REPO_ROOT, check=True)
+
+
 def normalize_model_id(model_name: str) -> str:
     return model_name.replace("/", "__")
 
@@ -328,8 +335,10 @@ def main() -> None:
     parser.add_argument("--mode", choices=["baseline", "defense"], default="baseline")
     parser.add_argument("--judge", choices=["official_api", "local_dev"], default="official_api")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--clone-missing", action="store_true")
     args = parser.parse_args()
 
+    ensure_official_stack(clone_missing=args.clone_missing)
     ensure_official_roots()
     validate_judge_mode(args.judge, args.suite)
     model_name_or_path = ensure_defensive_model(args.model, args.mode, dry_run=args.dry_run)

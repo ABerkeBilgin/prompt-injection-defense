@@ -101,6 +101,19 @@ Ilk kontrol:
 !find third_party -maxdepth 2 -type f | sort | head -50
 ```
 
+Eger Bos Donerse:
+```bash
+%cd /content/prompt-injection-defense/third_party
+!git clone https://github.com/Sizhe-Chen/DefensiveToken.git
+!git clone --recurse-submodules https://github.com/facebookresearch/Meta_SecAlign.git
+```
+
+Alternatif tek komut fallback:
+```bash
+%cd /content/prompt-injection-defense
+!python scripts/bootstrap_official_stack.py --clone-missing
+```
+
 Beklenen:
 - `third_party/DefensiveToken/setup.py`
 - `third_party/Meta_SecAlign/run_tests.py`
@@ -127,6 +140,12 @@ Calistir:
 
 ```bash
 !python scripts/bootstrap_official_stack.py --apply-patches
+```
+
+Submodule/gitlink sorunu varsa tek adimda clone + patch:
+
+```bash
+!python scripts/bootstrap_official_stack.py --clone-missing --apply-patches
 ```
 
 State kontrolu:
@@ -262,6 +281,12 @@ Gercek kosudan once komutlari sadece uretip kontrol et.
 !python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge local_dev --dry-run
 ```
 
+Eger third_party klasorleri eksikse:
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge local_dev --dry-run --clone-missing
+```
+
 Dry-run'da kontrol edeceginiz seyler:
 - `Meta_SecAlign/test.py` komutlari basiliyor mu
 - Alpaca / SEP / CySE / TaskTracker komutlari gorunuyor mu
@@ -283,6 +308,13 @@ Ilk gercek denemeyi en kucuk resmi kapsamla yap:
 
 ```bash
 !python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api
+```
+
+Gerekirse fallback ile:
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge official_api --clone-missing
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api --clone-missing
 ```
 
 Bu komutlar sirasiyla:
