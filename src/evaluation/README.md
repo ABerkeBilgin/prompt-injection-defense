@@ -34,6 +34,7 @@ Optional prediction metadata such as `benchmark`, `attack_type`, `model_name`, a
 Supported CLI options:
 - `--judge-provider openai_compatible`
 - `--judge-provider local_transformers`
+- `--judge-provider local_vllm`
 - `--judge-model <model_name>`
 - `--judge-config <json_path>`
 
@@ -45,7 +46,10 @@ Expected config keys in `--judge-config` JSON:
 - `base_url` (`openai_compatible` only)
 - `timeout` (optional)
 - `max_new_tokens` (`local_transformers` only, optional)
+- `max_new_tokens` (`local_transformers` / `local_vllm`, optional)
 - `trust_remote_code` (`local_transformers` only, optional)
+- `trust_remote_code` (`local_transformers` / `local_vllm`, optional)
+- `gpu_memory_utilization` (`local_vllm` only, optional)
 
 Environment variable fallback is also supported:
 - `OPENAI_API_KEY`
@@ -54,9 +58,11 @@ Environment variable fallback is also supported:
 - `OPENAI_JUDGE_TIMEOUT`
 - `LOCAL_JUDGE_MAX_NEW_TOKENS`
 - `LOCAL_JUDGE_TRUST_REMOTE_CODE`
+- `LOCAL_JUDGE_GPU_MEMORY_UTILIZATION`
 
 Free temporary thesis path:
 - `local_transformers` can run a local judge model such as `meta-llama/Meta-Llama-3-8B-Instruct`.
+- `local_vllm` is the faster free local-judge path when Colab GPU memory is sufficient.
 - This is a cost-saving temporary setup.
 - Before final thesis runs, replace it with the intended API-based judge and record that switch in methodology notes.
 

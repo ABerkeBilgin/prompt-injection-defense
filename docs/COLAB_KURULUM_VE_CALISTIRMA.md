@@ -17,6 +17,7 @@ Kritik fark:
 - `paper` evaluator icin judge config zorunludur.
 - `judge_config.json` olmadan resmi metric akisi calismaz.
 - Ucretsiz gecici yol olarak `local_transformers` judge kullanilabilir.
+- Daha hizli ucretsiz yol olarak `local_vllm` tercih edilebilir.
 - Son tez kosularinda hedef yine API tabanli hakeme donmektir.
 
 ## 1. Runtime
@@ -277,6 +278,32 @@ Not:
   - final raporlamadan once API tabanli resmi judge ile son kosular tekrar alinacak.
 - Local judge, API judge ile birebir ayni sonucu garanti etmez.
 
+### Secenek C: Daha hizli ucretsiz local vLLM judge
+
+Bu secenek ayni judge modelini `vllm` ile yukler. Genelde `local_transformers` seceneginden daha hizlidir.
+
+```python
+import json
+from pathlib import Path
+
+cfg = {
+    "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "max_new_tokens": 32,
+    "trust_remote_code": True,
+    "gpu_memory_utilization": 0.85,
+}
+Path("/content/prompt-injection-defense/judge_config.json").write_text(
+    json.dumps(cfg, indent=2) + "\n",
+    encoding="utf-8",
+)
+print("Wrote judge_config.json")
+```
+
+Not:
+- Inference modeli ve judge modeli ayni anda GPU bellekteyse VRAM daha hizli dolabilir.
+- Gerekirse once inference bittikten sonra metric asamasina gecin.
+- Ilk denemede `max_new_tokens: 32` kullanin.
+
 ## 14. Resmi metrikleri hesapla
 
 Calisma klasoru:
@@ -291,22 +318,22 @@ Calisma klasoru:
 Buradaki `win_rate`, tezde Alpaca utility kolonu olarak kullanilacak alandir.
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
 ```
 
 ### SEP
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
 ```
 
 ### CyberSecEval2
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
 ```
 
 ## 15. Aggregate tablo dosyasi uret
@@ -354,6 +381,7 @@ Onerilen ilk benchmark:
 - `TaskTracker`, `InjecAgent`, `AgentDojo` sonraki fazdadir.
 - `paper` evaluator judge config olmadan calismaz.
 - Gecici ucretsiz yol olarak `--judge-provider local_transformers` kullanilabilir.
+- Daha hizli gecici ucretsiz yol olarak `--judge-provider local_vllm` kullanilabilir.
 - TODO: final tez kosularinda API tabanli judge ile son tablolar yeniden alinmalidir.
 - `alpaca_farm` utility kolonu icin `win_rate` alanini kullan.
 - `run_inference.py` varsayilan olarak `transformers` motoru kullanir; hiz icin `--engine vllm` desteklenir.

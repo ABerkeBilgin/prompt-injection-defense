@@ -19,6 +19,7 @@ def load_judge_config(config_path: str | None) -> dict:
         "timeout": int(os.getenv("OPENAI_JUDGE_TIMEOUT", "60")),
         "max_new_tokens": int(os.getenv("LOCAL_JUDGE_MAX_NEW_TOKENS", "64")),
         "trust_remote_code": os.getenv("LOCAL_JUDGE_TRUST_REMOTE_CODE", "true").lower() in {"1", "true", "yes"},
+        "gpu_memory_utilization": float(os.getenv("LOCAL_JUDGE_GPU_MEMORY_UTILIZATION", "0.9")),
     }
     if not config_path:
         return config
@@ -221,6 +222,86 @@ class LocalTransformersJudge(BaseJudge):
         return parse_binary_verdict(raw_text)
 
 
+class LocalVLLMJudge(BaseJudge):
+    mode = "local_vllm"
+
+    def __init__(self, config: dict, model_override: str | None = None) -> None:
+        self.model_name = str(model_override or config.get("model", "")).strip()
+        self.max_new_tokens = int(config.get("max_new_tokens", 64))
+        self.trust_remote_code = bool(config.get("trust_remote_code", True))
+        self.gpu_memory_utilization = float(config.get("gpu_memory_utilization", 0.9))
+        self.llm = None
+        self.tokenizer = None
+        self.sampling_params = None
+        self._load()
+
+    def _load(self) -> None:
+        if not self.model_name:
+            return
+        try:
+            from vllm import LLM, SamplingParams
+            import transformers
+        except ImportError as exc:
+            raise JudgeError("local_vllm judge requires vllm and transformers to be installed.") from exc
+
+        try:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                self.model_name,
+                trust_remote_code=self.trust_remote_code,
+            )
+            self.llm = LLM(
+                model=self.model_name,
+                trust_remote_code=self.trust_remote_code,
+                gpu_memory_utilization=self.gpu_memory_utilization,
+            )
+            self.sampling_params = SamplingParams(
+                temperature=0.0,
+                max_tokens=self.max_new_tokens,
+            )
+        except Exception as exc:  # pragma: no cover - runtime/environment dependent
+            raise JudgeError(f"Failed to load local vLLM judge model {self.model_name}: {exc}") from exc
+
+    def available(self) -> bool:
+        return self.llm is not None and self.tokenizer is not None and self.sampling_params is not None
+
+    def _render_prompt(self, prompt: str) -> str:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict evaluation judge. "
+                    'Reply with exactly one JSON object and nothing else. '
+                    'The JSON must contain a single boolean field named "pass".'
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        chat_template = getattr(self.tokenizer, "chat_template", None)
+        if chat_template:
+            return self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        return (
+            "System: You are a strict evaluation judge. "
+            'Reply with exactly one JSON object and nothing else. '
+            'The JSON must contain a single boolean field named "pass".\n\n'
+            f"User:\n{prompt}\n\nAssistant:\n"
+        )
+
+    def judge_binary(self, prompt: str) -> bool | None:
+        if not self.available():
+            return None
+
+        rendered_prompt = self._render_prompt(prompt)
+        outputs = self.llm.generate([rendered_prompt], self.sampling_params)
+        if not outputs or not outputs[0].outputs:
+            raise JudgeError("local_vllm judge did not return any output.")
+        raw_text = outputs[0].outputs[0].text
+        return parse_binary_verdict(raw_text)
+
+
 def create_judge(provider: str, config_path: str | None, model_override: str | None) -> BaseJudge:
     provider_name = (provider or "openai_compatible").strip().lower()
     config = load_judge_config(config_path)
@@ -228,6 +309,8 @@ def create_judge(provider: str, config_path: str | None, model_override: str | N
         return OpenAICompatibleJudge(config=config, model_override=model_override)
     if provider_name == "local_transformers":
         return LocalTransformersJudge(config=config, model_override=model_override)
+    if provider_name == "local_vllm":
+        return LocalVLLMJudge(config=config, model_override=model_override)
     return BaseJudge()
 
 
@@ -237,5 +320,5 @@ def validate_required_judge(judge: BaseJudge, evaluator: str) -> None:
     if not judge.available():
         raise JudgeError(
             "Paper evaluator requires a valid judge configuration. "
-            "Use --judge-provider openai_compatible or local_transformers and provide the required model/config values."
+            "Use --judge-provider openai_compatible, local_transformers, or local_vllm and provide the required model/config values."
         )
