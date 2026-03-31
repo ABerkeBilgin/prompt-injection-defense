@@ -2,14 +2,11 @@
 # Model calistiracaksan PyTorch paketlerini uyumlu set halinde kur.
 
 # Model inference (src/model/setup.py ve demo.py)
-transformers==4.57.1
-<<<<<<< Updated upstream
-torch==2.10.0
+torch>=2.9.0
 torchvision==0.25.0
 torchaudio==2.10.0
-=======
-torch>=2.9.0
->>>>>>> Stashed changes
+transformers==4.57.1
 
 # Metrik / degerlendirme (istege bagli, ek analiz icin)
 numpy
+vllm

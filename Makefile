@@ -1,7 +1,7 @@
 PYTHON ?= python
 MODEL  ?= meta-llama/Llama-3.1-8B-Instruct
 
-.PHONY: prepare setup baseline defense eval-baseline eval-defense
+.PHONY: prepare setup baseline defense judge eval-baseline eval-defense
 
 # ──────────────────────────────────────────────
 # YERELDE çalışır (GPU gerekmez)
@@ -11,25 +11,25 @@ MODEL  ?= meta-llama/Llama-3.1-8B-Instruct
 prepare:
 	$(PYTHON) src/data/build_dataset.py --output data/processed/eval_set.jsonl
 
-# 5. Metrik hesapla — baseline
+# 5. Metrik hesapla — baseline (Hakemli veya hakemsiz fark etmez, predictions dosyasına bakar)
 eval-baseline:
 	$(PYTHON) src/evaluation/compute_metrics.py \
 		--dataset data/processed/eval_set.jsonl \
 		--predictions data/processed/predictions_baseline.jsonl \
 		--output docs/raporlar/metrics_baseline.json
 
-# 6. Metrik hesapla — defense
+# 6. Metrik hesapla — defense (Hakemli dosya olan predictions_judged.jsonl'i kullanır)
 eval-defense:
 	$(PYTHON) src/evaluation/compute_metrics.py \
 		--dataset data/processed/eval_set.jsonl \
-		--predictions data/processed/predictions_defense.jsonl \
+		--predictions data/processed/predictions_judged.jsonl \
 		--output docs/raporlar/metrics_defense.json
 
 # ──────────────────────────────────────────────
 # COLAB'DA çalışır (GPU gerektirir)
 # ──────────────────────────────────────────────
 
-# 2. DefensiveToken'lı model versiyonunu oluştur (bir kez çalıştır)
+# 2. DefensiveToken'lı model versiyonunu oluştur
 setup:
 	$(PYTHON) src/model/setup.py
 
@@ -44,3 +44,9 @@ defense:
 	$(PYTHON) src/model/run_inference.py -m $(MODEL) \
 		--dataset data/processed/eval_set.jsonl \
 		--output data/processed/predictions_defense.jsonl
+
+# 4.5. JUDGE (YENİ EKLEDİK)
+judge:
+	$(PYTHON) src/evaluation/run_judge.py \
+		--input data/processed/predictions_defense.jsonl \
+		--output data/processed/predictions_judged.jsonl
