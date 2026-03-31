@@ -6,6 +6,7 @@ from pathlib import Path
 from adapters.alpaca_farm import load_alpaca_farm_rows
 from adapters.cyberseceval2 import load_cyberseceval2_rows
 from adapters.sep import load_sep_rows
+from adapters.tasktracker import load_tasktracker_rows
 
 
 MANUAL_ROWS = [
@@ -58,6 +59,7 @@ SOURCE_LOADERS = {
     "alpaca_farm": load_alpaca_farm_rows,
     "sep": load_sep_rows,
     "cyberseceval2": load_cyberseceval2_rows,
+    "tasktracker": load_tasktracker_rows,
 }
 
 
@@ -133,7 +135,7 @@ def main() -> None:
     parser.add_argument(
         "--source",
         default="manual",
-        choices=["manual", "alpaca_farm", "sep", "cyberseceval2", "all"],
+        choices=["manual", "alpaca_farm", "sep", "cyberseceval2", "tasktracker", "all"],
         help="Dataset source selection",
     )
     parser.add_argument(

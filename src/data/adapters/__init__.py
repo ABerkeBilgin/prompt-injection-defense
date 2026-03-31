@@ -1,9 +1,11 @@
 from .alpaca_farm import load_alpaca_farm_rows
 from .cyberseceval2 import load_cyberseceval2_rows
 from .sep import load_sep_rows
+from .tasktracker import load_tasktracker_rows
 
 __all__ = [
     "load_alpaca_farm_rows",
     "load_cyberseceval2_rows",
     "load_sep_rows",
+    "load_tasktracker_rows",
 ]

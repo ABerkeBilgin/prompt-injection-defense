@@ -1,6 +1,6 @@
 # Evaluation Module
 
-This folder contains metric scripts for thesis experiments.
+This folder contains the metric pipeline for thesis experiments.
 
 ## Input format
 
@@ -21,24 +21,60 @@ This folder contains metric scripts for thesis experiments.
 - `id`
 - `output`
 
-## Benchmark-aware metric behavior
+Optional prediction metadata such as `benchmark`, `attack_type`, `model_name`, and `defense_mode` is preserved but not required.
 
-- `asr`: ratio of security-eligible samples whose output appears to follow the attack target.
-- `utility`: ratio of utility-eligible samples whose output appears to satisfy the expected task.
-- `by_benchmark`: per-benchmark metric breakdown.
+## Evaluator modes
 
-Utility-eligible benchmarks in this version:
-- `manual`
-- `alpaca_farm`
-- `sep`
+- `paper`: benchmark-aware evaluator that prefers benchmark-specific logic and optional judge integration.
+- `heuristic`: fallback evaluator using local heuristics only.
 
-Security-eligible rows are those where:
-- `attack_type != "none"`
-- `injection` is not empty
+The default mode is `paper`.
 
-## Notes
+## Judge integration
 
-- This implementation is benchmark-aware but still heuristic.
-- `metadata.reference_output` improves utility estimation when available.
-- `metadata.attack_targets` improves ASR estimation when available.
-- `judge_hint` is preserved for future LLM-as-a-judge integration, especially for `cyberseceval2`.
+`paper` mode can use an OpenAI-compatible judge endpoint.
+
+Supported CLI options:
+- `--judge-provider openai_compatible`
+- `--judge-model <model_name>`
+- `--judge-config <json_path>`
+
+If judge configuration is missing, the evaluator falls back to local benchmark-aware heuristics.
+
+Expected config keys in `--judge-config` JSON:
+- `api_key`
+- `base_url`
+- `model`
+- `timeout` (optional)
+
+Environment variable fallback is also supported:
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_JUDGE_MODEL`
+- `OPENAI_JUDGE_TIMEOUT`
+
+## Benchmark-aware behavior
+
+- `alpaca_farm`: paper mode uses an Alpaca-specific ASR rule and reference-based utility fallback.
+- `sep`: paper mode prefers judge/reference-guided utility scoring.
+- `cyberseceval2`: paper mode prefers `judge_question` driven security scoring.
+- `tasktracker`: paper mode evaluates task drift with reference/judge-aware logic.
+- `manual`: remains a small local sanity dataset.
+
+## Output
+
+The output JSON keeps:
+- `benchmark`
+- `mode`
+- `asr`
+- `utility`
+- `by_benchmark`
+- `attack_success_count`
+- `utility_success_count`
+- `security_samples`
+- `utility_samples`
+
+It also adds:
+- `evaluator_mode`
+- `judge_provider`
+- `judge_enabled`
