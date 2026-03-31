@@ -154,6 +154,10 @@ State kontrolu:
 !cat patches/meta_secalign/bootstrap_state.json
 ```
 
+Beklenen:
+- `patched: true`
+- veya `patched: false` ama `already_patched: true`
+
 Patch kontrolu:
 
 ```bash
@@ -166,6 +170,10 @@ Beklenen:
 - trusted instruction `system`
 - untrusted data `user`
 - `add_defensive_tokens=False`
+
+Eger `patched: false` ve `already_patched: false` gorursen:
+- bootstrap patch bu upstream `utils.py` formatini eslesememis demektir
+- bu durumda akisa devam etme; patch script'ini guncelle
 
 ## 7. Meta_SecAlign veri ve benchmark setup
 

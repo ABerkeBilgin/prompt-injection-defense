@@ -48,49 +48,55 @@ def maybe_checkout(repo_root: Path, ref: str | None) -> None:
     run_git(["checkout", ref], cwd=repo_root)
 
 
-def patch_metasecalign_utils(meta_root: Path) -> bool:
+def patch_metasecalign_utils(meta_root: Path) -> tuple[bool, bool]:
     utils_path = meta_root / "utils.py"
     original = utils_path.read_text(encoding="utf-8-sig")
     updated = original
 
-    replacements = [
+    patterns = [
         (
-            """apply_chat_template([{"role": "user", "content": d_item['instruction']}, {"role": "input", "content": d_item['input']}], tokenize=False, add_generation_prompt=True)""",
+            r"""apply_chat_template\(\s*\[\s*\{"role":\s*"user",\s*"content":\s*d_item\['instruction'\]\}\s*,\s*\{"role":\s*"input",\s*"content":\s*d_item\['input'\]\}\s*\]\s*,\s*tokenize=False\s*,\s*add_generation_prompt=True(?:\s*,\s*add_defensive_tokens=False)?\s*\)""",
             """apply_chat_template([{"role": "system", "content": d_item['instruction']}, {"role": "user", "content": d_item['input']}], tokenize=False, add_generation_prompt=True, add_defensive_tokens=False)""",
         ),
         (
-            """apply_chat_template([{"role": "user", "content": d_item['instruction']}], tokenize=False, add_generation_prompt=True)""",
+            r"""apply_chat_template\(\s*\[\s*\{"role":\s*"user",\s*"content":\s*d_item\['instruction'\]\s*\+\s*'\\n\\n'\s*\+\s*d_item\['input'\]\}\s*\]\s*,\s*tokenize=False\s*,\s*add_generation_prompt=True(?:\s*,\s*add_defensive_tokens=False)?\s*\)""",
+            """apply_chat_template([{"role": "system", "content": d_item['instruction'] + '\\n\\n' + d_item['input']}], tokenize=False, add_generation_prompt=True, add_defensive_tokens=False)""",
+        ),
+        (
+            r"""apply_chat_template\(\s*\[\s*\{"role":\s*"user",\s*"content":\s*d_item\['instruction'\]\}\s*\]\s*,\s*tokenize=False\s*,\s*add_generation_prompt=True(?:\s*,\s*add_defensive_tokens=False)?\s*\)""",
             """apply_chat_template([{"role": "system", "content": d_item['instruction']}], tokenize=False, add_generation_prompt=True, add_defensive_tokens=False)""",
         ),
     ]
 
-    for old, new in replacements:
-        updated = updated.replace(old, new)
+    replacement_count = 0
+    for pattern, replacement in patterns:
+        updated, count = re.subn(pattern, replacement, updated)
+        replacement_count += count
 
-    updated = re.sub(
-        r"""apply_chat_template\(\[\{"role": "system", "content": d_item\['instruction'\]\}, \{"role": "user", "content": d_item\['input'\]\}\], tokenize=False, add_generation_prompt=True\)(?!, add_defensive_tokens=False)""",
-        """apply_chat_template([{"role": "system", "content": d_item['instruction']}, {"role": "user", "content": d_item['input']}], tokenize=False, add_generation_prompt=True, add_defensive_tokens=False)""",
-        updated,
-    )
-    updated = re.sub(
-        r"""apply_chat_template\(\[\{"role": "system", "content": d_item\['instruction'\]\}\], tokenize=False, add_generation_prompt=True\)(?!, add_defensive_tokens=False)""",
-        """apply_chat_template([{"role": "system", "content": d_item['instruction']}], tokenize=False, add_generation_prompt=True, add_defensive_tokens=False)""",
-        updated,
+    already_patched = all(
+        snippet in updated
+        for snippet in [
+            """{"role": "system", "content": d_item['instruction']}, {"role": "user", "content": d_item['input']}""",
+            """{"role": "system", "content": d_item['instruction'] + '\\n\\n' + d_item['input']}""",
+            """{"role": "system", "content": d_item['instruction']}""",
+            "add_defensive_tokens=False",
+        ]
     )
 
     if updated == original:
-        return False
+        return False, already_patched
 
     utils_path.write_text(updated.rstrip("\n") + "\n", encoding="utf-8", newline="\n")
-    return True
+    return True, True
 
 
-def write_patch_state(meta_ref: str | None, dt_ref: str | None, patched: bool) -> None:
+def write_patch_state(meta_ref: str | None, dt_ref: str | None, patched: bool, already_patched: bool) -> None:
     PATCH_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "meta_secalign_ref": meta_ref or "current",
         "defensive_token_ref": dt_ref or "current",
         "metasecalign_utils_patched": patched,
+        "metasecalign_utils_already_patched": already_patched,
     }
     PATCH_STATE_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n")
 
@@ -128,16 +134,18 @@ def main() -> None:
         maybe_checkout(meta_root, args.metasecalign_ref)
 
     patched = False
+    already_patched = False
     if args.apply_patches:
-        patched = patch_metasecalign_utils(meta_root)
+        patched, already_patched = patch_metasecalign_utils(meta_root)
 
-    write_patch_state(args.metasecalign_ref, args.defensivetoken_ref, patched)
+    write_patch_state(args.metasecalign_ref, args.defensivetoken_ref, patched, already_patched)
     print(
         json.dumps(
             {
                 "defensive_token_root": str(defensive_root),
                 "meta_secalign_root": str(meta_root),
                 "patched": patched,
+                "already_patched": already_patched,
                 "patch_state": str(PATCH_STATE_PATH),
             },
             indent=2,
