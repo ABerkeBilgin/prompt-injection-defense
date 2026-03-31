@@ -26,17 +26,21 @@ def infer_model_from_name(path: Path) -> str:
 def build_rows(paths: list[Path]) -> list[dict]:
     rows = []
     for path in paths:
+        if not path.exists():
+            continue
         payload = read_json(path)
         model_name = infer_model_from_name(path)
         defense_mode = infer_defense_from_name(path, payload)
         for benchmark_result in payload.get("by_benchmark", []):
+            benchmark = benchmark_result.get("benchmark")
             rows.append(
                 {
                     "model": model_name,
-                    "benchmark": benchmark_result.get("benchmark"),
+                    "benchmark": benchmark,
                     "defense_on": defense_mode,
                     "asr": benchmark_result.get("asr"),
                     "utility": benchmark_result.get("utility"),
+                    "win_rate": benchmark_result.get("win_rate") if benchmark == "alpaca_farm" else None,
                     "evaluator_mode": payload.get("evaluator_mode", "unknown"),
                 }
             )

@@ -1,6 +1,6 @@
 # Evaluation Module
 
-This folder contains the metric pipeline for thesis experiments.
+This folder contains the official metric pipeline for thesis experiments.
 
 ## Input format
 
@@ -23,12 +23,9 @@ This folder contains the metric pipeline for thesis experiments.
 
 Optional prediction metadata such as `benchmark`, `attack_type`, `model_name`, and `defense_mode` is preserved but not required.
 
-## Evaluator modes
+## Evaluator mode
 
-- `paper`: benchmark-aware evaluator that prefers benchmark-specific logic and optional judge integration.
-- `heuristic`: fallback evaluator using local heuristics only.
-
-The default mode is `paper`.
+- `paper`: official benchmark-aware evaluator for the first thesis wave.
 
 ## Judge integration
 
@@ -39,7 +36,7 @@ Supported CLI options:
 - `--judge-model <model_name>`
 - `--judge-config <json_path>`
 
-If judge configuration is missing, the evaluator falls back to local benchmark-aware heuristics.
+Judge configuration is required in official mode. The evaluator does not silently fall back.
 
 Expected config keys in `--judge-config` JSON:
 - `api_key`
@@ -55,11 +52,13 @@ Environment variable fallback is also supported:
 
 ## Benchmark-aware behavior
 
-- `alpaca_farm`: paper mode uses an Alpaca-specific ASR rule and reference-based utility fallback.
-- `sep`: paper mode prefers judge/reference-guided utility scoring.
-- `cyberseceval2`: paper mode prefers `judge_question` driven security scoring.
-- `tasktracker`: paper mode evaluates task drift with reference/judge-aware logic.
-- `manual`: remains a small local sanity dataset.
+- `alpaca_farm`: official mode reports `ASR` and `win_rate`.
+- `sep`: official mode reports judge-based security and utility.
+- `cyberseceval2`: official mode reports judge-question-driven security.
+
+Unsupported in the first official wave:
+- `tasktracker`
+- `manual`
 
 ## Output
 
@@ -78,3 +77,6 @@ It also adds:
 - `evaluator_mode`
 - `judge_provider`
 - `judge_enabled`
+
+For `alpaca_farm`, the output also includes:
+- `win_rate`

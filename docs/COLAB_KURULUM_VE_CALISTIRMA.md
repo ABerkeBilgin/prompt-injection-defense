@@ -1,17 +1,21 @@
 # Colab Kurulum ve Calistirma Adimlari
 
-Bu belge, `Qwen/Qwen2.5-7B-Instruct` icin makale-bazli tez pipeline'ini Colab uzerinde calistirmak icindir.
+Bu belge, resmi ilk dalga tez evaluator akisini `Qwen/Qwen2.5-7B-Instruct` icin Colab uzerinde calistirmak icindir.
 
-Kritik nokta: `vllm` kurduktan sonra Colab runtime restart isteyebilir. Bu nedenle en guvenli sira:
+Ilk resmi kapsam:
+- `alpaca_farm`
+- `sep`
+- `cyberseceval2`
 
-1. GPU sec
-2. Paketleri kur
-3. Gerekirse runtime restart et
-4. Repo'yu tekrar klonla
-5. Veri cek
-6. Dataset uret
-7. Inference calistir
-8. Metrikleri hesapla
+Bu akista:
+- `alpaca_farm` icin `ASR` ve `win_rate`
+- `sep` icin security + utility
+- `cyberseceval2` icin security
+raporlanir.
+
+Kritik fark:
+- `paper` evaluator icin external judge config zorunludur.
+- `judge_config.json` olmadan resmi metric akisi calismaz.
 
 ## 1. Runtime
 
@@ -23,8 +27,6 @@ Kritik nokta: `vllm` kurduktan sonra Colab runtime restart isteyebilir. Bu neden
   - kabul edilebilir: `T4`
 
 ## 2. Paketleri kur
-
-Bu adimi yeni runtime acildiginda ilk yap.
 
 ```bash
 !pip install -U pip
@@ -42,20 +44,24 @@ Kontrol:
 
 ## 3. Runtime restart
 
-Eger Colab su uyariyi verirse:
-
-`You must restart the runtime in order to use newly installed versions.`
-
-sunlari yap:
+Eger Colab restart isterse:
 
 1. `Restart runtime` de
-2. Runtime geri acildiginda paket kurulumunu tekrar etme
-3. Dogrudan repo klonlama adimina gec
+2. Runtime geri acildiginda repo'yu yeniden klonla
+3. Once paketlerin durdugunu kontrol et
+4. Paket eksikse veya surumler kaymissa kurulum adimini tekrar calistir
 
 Not:
-- Runtime restart, yerel degiskenleri siler.
-- `/content` altindaki repo veya uretilen dosyalar kaybolabilir.
-- Bu yuzden repo klonlamayi paket kurulumundan sonra yap.
+- Runtime restart sonrasi `/content` altindaki repo kaybolabilir.
+- En guvenli yol: repo'yu her zaman paket kurulumundan sonra klonla.
+
+Kontrol komutu:
+
+```bash
+!python -m pip show torch torchvision torchaudio vllm
+```
+
+Eger burada paketlerden biri gorunmuyorsa veya surumler beklenen gibi degilse, `Paketleri kur` adimini tekrar calistir.
 
 ## 4. Repo'yu cek
 
@@ -84,18 +90,11 @@ Varsayilan branch:
 !hf auth whoami
 ```
 
-## 6. Benchmark ham verilerini indir
+## 6. Ham verileri indir
 
 ```bash
 !python scripts/fetch_defensivetokens_datasets.py
 ```
-
-Bu adim su benchmarklari indirir veya uretir:
-
-- `alpaca_farm`
-- `sep`
-- `cyberseceval2`
-- `tasktracker`
 
 Kontrol:
 
@@ -103,24 +102,14 @@ Kontrol:
 !find data/raw -maxdepth 2 -type f | sort
 ```
 
-## 7. Dataset uret
+## 7. Datasetleri uret
 
-Tum benchmarklar:
-
-```bash
-!python src/data/build_dataset.py --source alpaca_farm --mode combined --output data/processed/eval_alpaca_farm_qwen25.jsonl
-!python src/data/build_dataset.py --source sep --mode combined --output data/processed/eval_sep_qwen25.jsonl
-!python src/data/build_dataset.py --source cyberseceval2 --mode security --output data/processed/eval_cyberseceval2_qwen25.jsonl
-!python src/data/build_dataset.py --source tasktracker --mode combined --output data/processed/eval_tasktracker_qwen25.jsonl
-```
-
-Tek benchmark calistirmak istersen:
+Resmi ilk dalga benchmarklari:
 
 ```bash
 !python src/data/build_dataset.py --source alpaca_farm --mode combined --output data/processed/eval_alpaca_farm_qwen25.jsonl
 !python src/data/build_dataset.py --source sep --mode combined --output data/processed/eval_sep_qwen25.jsonl
 !python src/data/build_dataset.py --source cyberseceval2 --mode security --output data/processed/eval_cyberseceval2_qwen25.jsonl
-!python src/data/build_dataset.py --source tasktracker --mode combined --output data/processed/eval_tasktracker_qwen25.jsonl
 ```
 
 Kontrol:
@@ -129,29 +118,36 @@ Kontrol:
 !wc -l data/processed/eval_alpaca_farm_qwen25.jsonl
 !wc -l data/processed/eval_sep_qwen25.jsonl
 !wc -l data/processed/eval_cyberseceval2_qwen25.jsonl
-!wc -l data/processed/eval_tasktracker_qwen25.jsonl
 ```
 
-## 8. Inference motoru secimi
+## 8. Calisma klasoru kurali
 
-Iki secenek var:
+- `src/model` klasorunde:
+  - `python setup.py ...`
+  - `python run_inference.py ...`
+- repo kokunde:
+  - `python scripts/fetch_defensivetokens_datasets.py`
+  - `python src/data/build_dataset.py ...`
+  - `python src/evaluation/compute_metrics.py ...`
+  - `python scripts/build_metrics_table.py ...`
 
-- `transformers`
-  - daha guvenli
-  - daha yavas
-- `vllm`
-  - cok daha hizli
-  - ozellikle `A100`, `H100`, `L4` icin tavsiye edilir
+Model tarafina gecerken:
 
-`run_inference.py` varsayilan olarak `transformers` kullanir.
-Hizlandirmak icin `--engine vllm` ekle.
+```bash
+%cd /content/prompt-injection-defense/src/model
+```
+
+Metric veya tablo tarafina donerken:
+
+```bash
+%cd /content/prompt-injection-defense
+```
 
 ## 9. DefensiveTokens modelini olustur
 
-Baseline icin bu adim gerekmez.
+Baseline icin gerekmez.
 
-Defense inference'dan once, `-5DefensiveTokens` uzantili local modeli olusturman gerekir.
-Qwen icin:
+Defense inference'dan once:
 
 ```bash
 %cd /content/prompt-injection-defense/src/model
@@ -164,15 +160,25 @@ Kontrol:
 !find /content/prompt-injection-defense/src/model/Qwen -maxdepth 2 -type f | sort
 ```
 
-Bu adimdan sonra localde su klasor olusmali:
+Beklenen klasor:
 
 - `/content/prompt-injection-defense/src/model/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens`
 
-Eger bu adim calistirilmazsa defense inference asamasinda
-`Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens is not a valid model identifier`
-hatası alırsın.
+## 10. Inference motoru secimi
 
-## 10. Baseline inference komutlari
+Iki secenek var:
+
+- `transformers`
+  - daha guvenli
+  - daha yavas
+- `vllm`
+  - daha hizli
+  - `A100`, `H100`, `L4` icin tavsiye edilir
+
+Varsayilan motor `transformers`tir.
+Hizli yol icin `--engine vllm` kullan.
+
+## 11. Baseline inference
 
 Calisma klasoru:
 
@@ -182,27 +188,11 @@ Calisma klasoru:
 
 ### AlpacaFarm baseline
 
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl
-```
-
-vLLM:
-
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl
 ```
 
 ### SEP baseline
-
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_baseline.jsonl
-```
-
-vLLM:
 
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_baseline.jsonl
@@ -210,43 +200,13 @@ vLLM:
 
 ### CyberSecEval2 baseline
 
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl
-```
-
-vLLM:
-
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl
 ```
 
-### TaskTracker baseline
-
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_tasktracker_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_tasktracker_baseline.jsonl
-```
-
-vLLM:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_tasktracker_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_tasktracker_baseline.jsonl
-```
-
-## 11. Defense inference komutlari
+## 12. Defense inference
 
 ### AlpacaFarm defense
-
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl
-```
-
-vLLM:
 
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl
@@ -254,49 +214,19 @@ vLLM:
 
 ### SEP defense
 
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_defense.jsonl
-```
-
-vLLM:
-
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_defense.jsonl
 ```
 
 ### CyberSecEval2 defense
 
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl
-```
-
-vLLM:
-
 ```bash
 !python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl
 ```
 
-### TaskTracker defense
+## 13. Judge config olustur
 
-Transformers:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --dataset /content/prompt-injection-defense/data/processed/eval_tasktracker_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_tasktracker_defense.jsonl
-```
-
-vLLM:
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_tasktracker_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_tasktracker_defense.jsonl
-```
-
-## 12. Judge konfigurasyonu
-
-`paper` evaluator OpenAI-compatible judge kullanabilir. Bir config dosyasi olustur:
+Bu adim zorunludur. `paper` evaluator judge config olmadan calismaz.
 
 ```python
 import json
@@ -315,9 +245,7 @@ Path("/content/prompt-injection-defense/judge_config.json").write_text(
 print("Wrote judge_config.json")
 ```
 
-Judge kullanmak istemezsen `paper` evaluator local fallback ile devam eder.
-
-## 13. Metrikleri hesapla
+## 14. Resmi metrikleri hesapla
 
 Calisma klasoru:
 
@@ -326,6 +254,9 @@ Calisma klasoru:
 ```
 
 ### AlpacaFarm
+
+`alpaca_farm` ciktilarinda hem `asr` hem `win_rate` gorunur.
+Buradaki `win_rate`, tezde Alpaca utility kolonu olarak kullanilacak alandir.
 
 ```bash
 !python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-config judge_config.json
@@ -346,14 +277,9 @@ Calisma klasoru:
 !python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-config judge_config.json
 ```
 
-### TaskTracker
+## 15. Aggregate tablo dosyasi uret
 
-```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_tasktracker_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_tasktracker_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_tasktracker_baseline.json --evaluator paper --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_tasktracker_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_tasktracker_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_tasktracker_defense.json --evaluator paper --judge-config judge_config.json
-```
-
-## 14. Tez tablosu icin aggregate dosya uret
+Yalnizca mevcut dosyalari verebilirsin; olmayan dosyalar atlanir.
 
 ```bash
 !python scripts/build_metrics_table.py \
@@ -364,8 +290,6 @@ Calisma klasoru:
   docs/raporlar/metrics_qwen25_7b_sep_defense.json \
   docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json \
   docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json \
-  docs/raporlar/metrics_qwen25_7b_tasktracker_baseline.json \
-  docs/raporlar/metrics_qwen25_7b_tasktracker_defense.json \
   --output docs/raporlar/metrics_qwen25_7b_table.json
 ```
 
@@ -375,26 +299,28 @@ Kontrol:
 !cat docs/raporlar/metrics_qwen25_7b_table.json
 ```
 
-## En hizli pratik calisma
+## En hizli pratik yol
 
-Eger sadece tek benchmark icin hizli sonuc almak istiyorsan:
+Eger once tek benchmark ile ilerlemek istiyorsan:
 
 1. `vllm` kur
-2. runtime restart et
-3. repo'yu tekrar klonla
+2. restart et
+3. repo'yu yeniden klonla
 4. sadece ilgili benchmark dataset'ini uret
-5. `--engine vllm` ile baseline ve defense calistir
-6. metric hesapla
+5. Qwen setup
+6. baseline + defense inference
+7. judge config olustur
+8. metric hesapla
 
 Onerilen ilk benchmark:
-- `cyberseceval2`
-- veya `sep`
+- `alpaca_farm`
+- veya `cyberseceval2`
 
 ## Kisa Notlar
 
-- Bu pipeline makaleye daha yakindir, ama tum tablo degerlerini birebir garanti etmez.
-- `paper` evaluator judge config olmadan da calisir; bu durumda local fallback kullanir.
-- `tasktracker` verisi bu repoda makale-benzeri uyarlanmis benchmark seklinde uretilebilir.
-- `run_inference.py` deterministic calisir; ayni input ile ayni ciktiyi hedefler.
-- `run_inference.py` varsayilan olarak `transformers` motoru kullanir; hiz icin opsiyonel `--engine vllm` desteklenir.
-- Colab runtime reset olursa repo ve `/content` altindaki dosyalari tekrar olusturman gerekebilir.
+- Bu resmi ilk dalga yalnizca `alpaca_farm`, `sep`, `cyberseceval2` icindir.
+- `TaskTracker`, `InjecAgent`, `AgentDojo` sonraki fazdadir.
+- `paper` evaluator judge config olmadan calismaz.
+- `alpaca_farm` utility kolonu icin `win_rate` alanini kullan.
+- `run_inference.py` varsayilan olarak `transformers` motoru kullanir; hiz icin `--engine vllm` desteklenir.
+- Colab runtime reset olursa repo ve `/content` altindaki dosyalari yeniden olusturman gerekir.

@@ -1,13 +1,12 @@
 # Benchmark Veri Notlari
 
-Bu repo, tez odakli makale-benzeri benchmark entegrasyonunda su kaynaklari hedefler:
+Bu repo, tez odakli resmi ilk dalga benchmark entegrasyonunda su kaynaklari hedefler:
 
 - AlpacaFarm
 - SEP
 - CyberSecEval2
-- TaskTracker
 
-Ilk refactor dalgasinda `InjecAgent` ve `AgentDojo` desteklenmez.
+Ilk resmi dalgada `TaskTracker`, `InjecAgent` ve `AgentDojo` desteklenmez.
 
 ## Beklenen ham veri klasorleri
 
@@ -16,7 +15,6 @@ Ham veri dosyalari su klasorlerde tutulur:
 - `data/raw/alpaca_farm/`
 - `data/raw/sep/`
 - `data/raw/cyberseceval2/`
-- `data/raw/tasktracker/`
 
 Makaledeki desteklenen benchmarklar icin ham veriyi otomatik indirmek istersen:
 
@@ -52,19 +50,8 @@ Adapter su alias alanlardan uygun olanlari secmeye calisir:
 - data: `data_with_injection`, `data`, `context`, `prompt_injection`, `input`, `content`
 - judge: `judge_question`, `judge_hint`, `success_criteria`
 
-### TaskTracker
-
-Bu repoda TaskTracker, resmi injection kaynaklari ve tez pipeline'i icin ortak satir semasina uyarlanmis bir adapter dosyasi ile kullanilir.
-
-Adapter su alanlari okumayi dener:
-- instruction: `instruction`, `user_prompt`, `primary_task_prompt`, `prompt`
-- data: `input`, `text`, `final_text_paragraph`, `data`, `content`
-- injection: `injection`, `secondary_task_prompt`, `attack`, `probe`, `trigger`
-- reference: `reference_output`, `primary_task_answer`, `expected_output`, `witness`
-- judge: `judge_hint`, `judge_question`, `success_criteria`
-
 ## Lisans ve kullanim notlari
 
 - AlpacaFarm README, verinin arastirma amacli ve `CC BY-NC 4.0` oldugunu belirtir.
-- SEP, CyberSecEval2 ve TaskTracker verilerini projeye eklemeden once kendi lisans ve kullanim kosullarini kontrol et.
+- SEP ve CyberSecEval2 verilerini projeye eklemeden once kendi lisans ve kullanim kosullarini kontrol et.
 - Bu repo benchmark verisini varsayilan olarak commit etmeye zorlamaz; `data/raw` altina runtime sirasinda yerlestirilmesi beklenir.

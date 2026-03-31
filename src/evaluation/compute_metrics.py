@@ -2,18 +2,8 @@ import argparse
 import json
 from pathlib import Path
 
-from benchmark_evaluators import (
-    heuristic_attack_success,
-    heuristic_utility_success,
-    is_security_sample,
-    is_utility_sample,
-    paper_attack_success,
-    paper_utility_success,
-)
-from judges import create_judge
-
-
-SUPPORTED_BENCHMARKS = {"alpaca_farm", "sep", "cyberseceval2", "tasktracker", "manual"}
+from benchmark_evaluators import SUPPORTED_PAPER_BENCHMARKS, evaluate_paper_sample, is_security_sample, is_utility_sample
+from judges import create_judge, validate_required_judge
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -41,24 +31,7 @@ def infer_mode(rows: list[dict]) -> str:
     return "utility"
 
 
-def evaluate_sample(sample: dict, output: str, evaluator: str, judge) -> tuple[bool, bool]:
-    if evaluator == "paper":
-        attack_success = paper_attack_success(sample, output, judge)
-        utility_success = paper_utility_success(sample, output, judge)
-        return attack_success, utility_success
-
-    attack_success = heuristic_attack_success(sample, output)
-    utility_success = heuristic_utility_success(sample, output)
-    return attack_success, utility_success
-
-
-def evaluate_group(
-    dataset_rows: list[dict],
-    prediction_rows: list[dict],
-    benchmark: str,
-    evaluator: str,
-    judge,
-) -> dict:
+def evaluate_group(dataset_rows: list[dict], prediction_rows: list[dict], benchmark: str, judge) -> dict:
     pred_map = {row["id"]: row.get("output", "") for row in prediction_rows}
     total = len(dataset_rows)
     matched_predictions = 0
@@ -73,7 +46,7 @@ def evaluate_group(
             continue
 
         matched_predictions += 1
-        sample_attack_success, sample_utility_success = evaluate_sample(sample, output, evaluator=evaluator, judge=judge)
+        sample_attack_success, sample_utility_success = evaluate_paper_sample(sample, output, judge)
 
         if is_security_sample(sample):
             security_samples += 1
@@ -88,15 +61,7 @@ def evaluate_group(
     asr = round(attack_success / security_samples, 4) if security_samples else None
     utility = round(utility_success / utility_samples, 4) if utility_samples else None
 
-    notes = []
-    if benchmark not in SUPPORTED_BENCHMARKS:
-        notes.append("Unsupported benchmark.")
-    if not security_samples:
-        notes.append("No security-eligible samples in this slice.")
-    if not utility_samples:
-        notes.append("No utility-eligible samples in this slice.")
-
-    return {
+    result = {
         "benchmark": benchmark,
         "mode": infer_mode(dataset_rows),
         "total": total,
@@ -107,8 +72,11 @@ def evaluate_group(
         "utility_success_count": utility_success,
         "security_samples": security_samples,
         "utility_samples": utility_samples,
-        "notes": " ".join(notes),
+        "notes": "",
     }
+    if benchmark == "alpaca_farm":
+        result["win_rate"] = utility
+    return result
 
 
 def infer_mode_from_groups(group_results: list[dict]) -> str:
@@ -127,7 +95,7 @@ def aggregate_results(group_results: list[dict], total_rows: int, matched_predic
     security_samples = sum(group["security_samples"] for group in group_results)
     utility_samples = sum(group["utility_samples"] for group in group_results)
 
-    return {
+    result = {
         "benchmark": "all" if len(group_results) > 1 else group_results[0]["benchmark"],
         "mode": infer_mode_from_groups(group_results),
         "total": total_rows,
@@ -140,9 +108,12 @@ def aggregate_results(group_results: list[dict], total_rows: int, matched_predic
         "utility_samples": utility_samples,
         "notes": "",
     }
+    if len(group_results) == 1 and group_results[0]["benchmark"] == "alpaca_farm":
+        result["win_rate"] = group_results[0].get("win_rate")
+    return result
 
 
-def evaluate(dataset_rows: list[dict], prediction_rows: list[dict], evaluator: str, judge) -> dict:
+def evaluate(dataset_rows: list[dict], prediction_rows: list[dict], judge) -> dict:
     if not dataset_rows:
         return {
             "benchmark": "all",
@@ -162,12 +133,12 @@ def evaluate(dataset_rows: list[dict], prediction_rows: list[dict], evaluator: s
     grouped_rows: dict[str, list[dict]] = {}
     for row in dataset_rows:
         benchmark = row.get("benchmark", "unknown")
-        if benchmark not in SUPPORTED_BENCHMARKS:
-            raise ValueError(f"Unsupported benchmark for evaluator: {benchmark}")
+        if benchmark not in SUPPORTED_PAPER_BENCHMARKS:
+            raise ValueError(f"Unsupported benchmark for official paper evaluator: {benchmark}")
         grouped_rows.setdefault(benchmark, []).append(row)
 
     group_results = [
-        evaluate_group(rows, prediction_rows, benchmark, evaluator=evaluator, judge=judge)
+        evaluate_group(rows, prediction_rows, benchmark, judge=judge)
         for benchmark, rows in sorted(grouped_rows.items())
     ]
 
@@ -182,7 +153,7 @@ def main() -> None:
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--predictions", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--evaluator", choices=["paper", "heuristic"], default="paper")
+    parser.add_argument("--evaluator", choices=["paper"], default="paper")
     parser.add_argument("--judge-provider", default="openai_compatible")
     parser.add_argument("--judge-model", default=None)
     parser.add_argument("--judge-config", default=None)
@@ -195,7 +166,9 @@ def main() -> None:
         config_path=args.judge_config,
         model_override=args.judge_model,
     )
-    result = evaluate(dataset_rows, prediction_rows, evaluator=args.evaluator, judge=judge)
+    validate_required_judge(judge, evaluator=args.evaluator)
+
+    result = evaluate(dataset_rows, prediction_rows, judge=judge)
     result["evaluator_mode"] = args.evaluator
     result["judge_provider"] = judge.mode
     result["judge_enabled"] = judge.available()

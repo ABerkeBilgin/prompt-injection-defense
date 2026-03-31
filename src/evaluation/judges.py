@@ -100,3 +100,13 @@ def create_judge(provider: str, config_path: str | None, model_override: str | N
         config = load_judge_config(config_path)
         return OpenAICompatibleJudge(config=config, model_override=model_override)
     return BaseJudge()
+
+
+def validate_required_judge(judge: BaseJudge, evaluator: str) -> None:
+    if evaluator != "paper":
+        return
+    if not judge.available():
+        raise JudgeError(
+            "Paper evaluator requires a valid external judge configuration. "
+            "Provide --judge-config or OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_JUDGE_MODEL."
+        )
