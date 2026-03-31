@@ -1,70 +1,73 @@
 # Colab Kurulum ve Calistirma Adimlari
 
-Bu belge, resmi ilk dalga tez evaluator akisini `Qwen/Qwen2.5-7B-Instruct` icin Colab uzerinde calistirmak icindir.
-
-Ilk resmi kapsam:
-- `alpaca_farm`
-- `sep`
-- `cyberseceval2`
+Bu belge, `DefensiveToken + Meta_SecAlign` resmi stack'i Colab uzerinde calistirmak icin tek dogru sirayi verir.
 
 Bu akista:
-- `alpaca_farm` icin `ASR` ve `win_rate`
-- `sep` icin security + utility
-- `cyberseceval2` icin security
-raporlanir.
+- `DefensiveToken` sadece savunmali model varyantini uretir
+- benchmark ve metrik mantigi `Meta_SecAlign` tarafinda calisir
+- bu repo yalnizca wrapper, bootstrap, raporlama ve Colab orkestrasyon katmanidir
 
-Kritik fark:
-- `paper` evaluator icin judge config zorunludur.
-- `judge_config.json` olmadan resmi metric akisi calismaz.
-- Ucretsiz gecici yol olarak `local_transformers` judge kullanilabilir.
-- Daha hizli ucretsiz yol olarak `local_vllm` tercih edilebilir.
-- Son tez kosularinda hedef yine API tabanli hakeme donmektir.
+Onemli:
+- final tez tablolari icin `official_api` kullan
+- `local_dev` sadece gelistirme / ara dogrulama icindir
+- eski `src/data/*`, `src/evaluation/*`, `run_inference.py` akisi resmi yol degildir
 
-## 1. Runtime
+## 1. Runtime secimi
 
+Colab:
 - `Runtime -> Change runtime type -> GPU`
-- Onerilen:
-  - en hizli: `H100`
-  - cok iyi: `A100`
-  - iyi: `L4`
-  - kabul edilebilir: `T4`
 
-## 2. Paketleri kur
+Onerilen GPU sirasi:
+- en hizli: `H100`
+- cok iyi: `A100`
+- iyi: `L4`
+- kabul edilebilir: `T4`
+
+Not:
+- resmi benchmark inference tarafinda `Meta_SecAlign` vLLM kullanir
+- 70B testleri bu belge kapsamina dahil degildir; ilk resmi denemeyi 8B / 7B modellerle yap
+
+## 2. Paket kurulumu
+
+Colab bash/terminal hucrenizde:
 
 ```bash
 !pip install -U pip
+!pip install -U uv
 !pip uninstall -y torch torchvision torchaudio
 !pip install --no-cache-dir torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0
 !pip install -U transformers==4.57.1 accelerate sentencepiece huggingface_hub
-!pip install vllm
+!pip install -U vllm
 ```
+
+Kurulum kontrolu:
+
+```bash
+!python -m pip show torch torchvision torchaudio transformers vllm uv
+```
+
+Beklenen:
+- `transformers 4.57.1`
+- `vllm` kurulu
+- `torch/torchvision/torchaudio` kurulu
+
+## 3. Runtime restart
+
+Eger Colab runtime restart isterse:
+
+1. `Restart runtime` de
+2. repo'yu yeniden klonlamadan once paketleri kontrol et
+3. eksik paket varsa sadece kurulum hucrelerini tekrar calistir
 
 Kontrol:
 
 ```bash
-!python -m pip show torch torchvision torchaudio vllm
+!python -m pip show torch torchvision torchaudio transformers vllm uv
 ```
-
-## 3. Runtime restart
-
-Eger Colab restart isterse:
-
-1. `Restart runtime` de
-2. Runtime geri acildiginda repo'yu yeniden klonla
-3. Once paketlerin durdugunu kontrol et
-4. Paket eksikse veya surumler kaymissa kurulum adimini tekrar calistir
 
 Not:
-- Runtime restart sonrasi `/content` altindaki repo kaybolabilir.
-- En guvenli yol: repo'yu her zaman paket kurulumundan sonra klonla.
-
-Kontrol komutu:
-
-```bash
-!python -m pip show torch torchvision torchaudio vllm
-```
-
-Eger burada paketlerden biri gorunmuyorsa veya surumler beklenen gibi degilse, `Paketleri kur` adimini tekrar calistir.
+- restart sonrasi `/content` altindaki repo ve tum uretilen dosyalar kaybolabilir
+- paketler bazen kalir, bazen kayar; kontrol etmeden varsayim yapma
 
 ## 4. Repo'yu cek
 
@@ -73,7 +76,7 @@ Varsayilan branch:
 ```bash
 %cd /content
 !rm -rf prompt-injection-defense
-!git clone https://github.com/ABerkeBilgin/prompt-injection-defense.git
+!git clone --recurse-submodules https://github.com/ABerkeBilgin/prompt-injection-defense.git
 %cd /content/prompt-injection-defense
 ```
 
@@ -82,307 +85,354 @@ Varsayilan branch:
 ```bash
 %cd /content
 !rm -rf prompt-injection-defense
-!git clone --branch salih --single-branch https://github.com/ABerkeBilgin/prompt-injection-defense.git
+!git clone --branch salih --single-branch --recurse-submodules https://github.com/ABerkeBilgin/prompt-injection-defense.git
 %cd /content/prompt-injection-defense
 ```
 
+Eger submodule'lar eksik geldiyse:
+
+```bash
+!git submodule update --init --recursive
+```
+
+Ilk kontrol:
+
+```bash
+!find third_party -maxdepth 2 -type f | sort | head -50
+```
+
+Beklenen:
+- `third_party/DefensiveToken/setup.py`
+- `third_party/Meta_SecAlign/run_tests.py`
+- `third_party/Meta_SecAlign/test.py`
+- `third_party/Meta_SecAlign/utils.py`
+
 ## 5. Hugging Face login
+
+Model ve gated repo erisimi icin:
 
 ```bash
 !hf auth login
 !hf auth whoami
 ```
 
-## 6. Ham verileri indir
+Eger Llama gated repo kullanacaksan:
+- Hugging Face hesabinda erisim verilmis olmali
+
+## 6. Resmi stack bootstrap
+
+Bu repo `Meta_SecAlign` uzerine makalede `DefensiveToken` README'de tarif edilen patch'leri uygular.
+
+Calistir:
 
 ```bash
-!python scripts/fetch_defensivetokens_datasets.py
+!python scripts/bootstrap_official_stack.py --apply-patches
+```
+
+State kontrolu:
+
+```bash
+!cat patches/meta_secalign/bootstrap_state.json
+```
+
+Patch kontrolu:
+
+```bash
+!grep -n "add_defensive_tokens=False" third_party/Meta_SecAlign/utils.py
+!grep -n '"role": "system"' third_party/Meta_SecAlign/utils.py
+!grep -n '"role": "user"' third_party/Meta_SecAlign/utils.py
+```
+
+Beklenen:
+- trusted instruction `system`
+- untrusted data `user`
+- `add_defensive_tokens=False`
+
+## 7. Meta_SecAlign veri ve benchmark setup
+
+Bu adim benchmark veri bagimliliklarini indirir:
+
+```bash
+%cd /content/prompt-injection-defense/third_party/Meta_SecAlign
+!python setup.py
 ```
 
 Kontrol:
 
 ```bash
-!find data/raw -maxdepth 2 -type f | sort
+!find data -maxdepth 2 -type f | sort | head -100
 ```
 
-## 7. Datasetleri uret
+Beklenen:
+- benchmark veri dosyalari
+- test script'lerinin kullandigi resmi data dosyalari
 
-Resmi ilk dalga benchmarklari:
+## 8. Judge config mantigi
 
-```bash
-!python src/data/build_dataset.py --source alpaca_farm --mode combined --output data/processed/eval_alpaca_farm_qwen25.jsonl
-!python src/data/build_dataset.py --source sep --mode combined --output data/processed/eval_sep_qwen25.jsonl
-!python src/data/build_dataset.py --source cyberseceval2 --mode security --output data/processed/eval_cyberseceval2_qwen25.jsonl
-```
+Iki mod vardir:
+
+### A. Final resmi yol: `official_api`
+
+Final tez tablolari icin bunu kullan.
+
+Gerekli dosya:
+- `third_party/Meta_SecAlign/data/openai_configs.yaml`
+
+Opsiyonel:
+- `third_party/Meta_SecAlign/data/gemini_configs.yaml`
 
 Kontrol:
 
 ```bash
-!wc -l data/processed/eval_alpaca_farm_qwen25.jsonl
-!wc -l data/processed/eval_sep_qwen25.jsonl
-!wc -l data/processed/eval_cyberseceval2_qwen25.jsonl
+!ls third_party/Meta_SecAlign/data/openai_configs.yaml
 ```
 
-## 8. Calisma klasoru kurali
+Bu dosya yoksa `official_api` modunda wrapper bilincli olarak hata verir.
 
-- `src/model` klasorunde:
-  - `python setup.py ...`
-  - `python run_inference.py ...`
-- repo kokunde:
-  - `python scripts/fetch_defensivetokens_datasets.py`
-  - `python src/data/build_dataset.py ...`
-  - `python src/evaluation/compute_metrics.py ...`
-  - `python scripts/build_metrics_table.py ...`
+### B. Gecici gelistirme yolu: `local_dev`
 
-Model tarafina gecerken:
+Bu mod:
+- ara dogrulama
+- komut sirasi denetimi
+- sinirli denemeler
+icin vardir
 
-```bash
-%cd /content/prompt-injection-defense/src/model
-```
+Final tez tablosu icin kullanma.
 
-Metric veya tablo tarafina donerken:
-
-```bash
-%cd /content/prompt-injection-defense
-```
+Metodoloji notu:
+- TODO: final raporlamadan once tum son kosular `official_api` ile tekrar alinacak
 
 ## 9. DefensiveTokens modelini olustur
 
-Baseline icin gerekmez.
+Savunmasiz (`baseline`) kosu icin gerekmez.
 
-Defense inference'dan once:
+Defense kosusu icin:
 
 ```bash
 %cd /content/prompt-injection-defense/src/model
 !python setup.py Qwen/Qwen2.5-7B-Instruct
 ```
 
+Bu komut artik resmi script'i cagirir:
+- `third_party/DefensiveToken/setup.py`
+
 Kontrol:
 
 ```bash
-!find /content/prompt-injection-defense/src/model/Qwen -maxdepth 2 -type f | sort
+!find /content/prompt-injection-defense/third_party/DefensiveToken/Qwen -maxdepth 2 -type f | sort
 ```
 
 Beklenen klasor:
+- `/content/prompt-injection-defense/third_party/DefensiveToken/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens`
 
-- `/content/prompt-injection-defense/src/model/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens`
+## 10. Calisma klasoru kurali
 
-## 10. Inference motoru secimi
-
-Iki secenek var:
-
-- `transformers`
-  - daha guvenli
-  - daha yavas
-- `vllm`
-  - daha hizli
-  - `A100`, `H100`, `L4` icin tavsiye edilir
-
-Varsayilan motor `transformers`tir.
-Hizli yol icin `--engine vllm` kullan.
-
-## 11. Baseline inference
-
-Calisma klasoru:
-
-```bash
-%cd /content/prompt-injection-defense/src/model
-```
-
-### AlpacaFarm baseline
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl
-```
-
-### SEP baseline
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_baseline.jsonl
-```
-
-### CyberSecEval2 baseline
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --no-defense --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl
-```
-
-## 12. Defense inference
-
-### AlpacaFarm defense
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_alpaca_farm_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl
-```
-
-### SEP defense
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_sep_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_sep_defense.jsonl
-```
-
-### CyberSecEval2 defense
-
-```bash
-!python run_inference.py -m Qwen/Qwen2.5-7B-Instruct --engine vllm --dataset /content/prompt-injection-defense/data/processed/eval_cyberseceval2_qwen25.jsonl --output /content/prompt-injection-defense/data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl
-```
-
-## 13. Judge config olustur
-
-Bu adim zorunludur. `paper` evaluator judge config olmadan calismaz.
-
-### Secenek A: Ucretli / API tabanli judge
-
-```python
-import json
-from pathlib import Path
-
-cfg = {
-    "api_key": "YOUR_API_KEY",
-    "base_url": "https://api.openai.com/v1/chat/completions",
-    "model": "gpt-4o-mini",
-    "timeout": 60,
-}
-Path("/content/prompt-injection-defense/judge_config.json").write_text(
-    json.dumps(cfg, indent=2) + "\n",
-    encoding="utf-8",
-)
-print("Wrote judge_config.json")
-```
-
-### Secenek B: Ucretsiz gecici local judge
-
-Bu secenek Hugging Face erisimi olan bir instruction modelini Colab GPU uzerinde hakem olarak kullanir.
-Onerilen gecici model:
-- `meta-llama/Meta-Llama-3-8B-Instruct`
-
-```python
-import json
-from pathlib import Path
-
-cfg = {
-    "model": "meta-llama/Meta-Llama-3-8B-Instruct",
-    "max_new_tokens": 64,
-    "trust_remote_code": True,
-}
-Path("/content/prompt-injection-defense/judge_config.json").write_text(
-    json.dumps(cfg, indent=2) + "\n",
-    encoding="utf-8",
-)
-print("Wrote judge_config.json")
-```
-
-Not:
-- Bu local judge, ucretsiz ve tekrar uretilebilir bir gecici tez cozumudur.
-- Metodoloji notuna su TODO dusulmelidir:
-  - final raporlamadan once API tabanli resmi judge ile son kosular tekrar alinacak.
-- Local judge, API judge ile birebir ayni sonucu garanti etmez.
-
-### Secenek C: Daha hizli ucretsiz local vLLM judge
-
-Bu secenek ayni judge modelini `vllm` ile yukler. Genelde `local_transformers` seceneginden daha hizlidir.
-
-```python
-import json
-from pathlib import Path
-
-cfg = {
-    "model": "meta-llama/Meta-Llama-3-8B-Instruct",
-    "max_new_tokens": 32,
-    "trust_remote_code": True,
-    "gpu_memory_utilization": 0.85,
-}
-Path("/content/prompt-injection-defense/judge_config.json").write_text(
-    json.dumps(cfg, indent=2) + "\n",
-    encoding="utf-8",
-)
-print("Wrote judge_config.json")
-```
-
-Not:
-- Inference modeli ve judge modeli ayni anda GPU bellekteyse VRAM daha hizli dolabilir.
-- Gerekirse once inference bittikten sonra metric asamasina gecin.
-- Ilk denemede `max_new_tokens: 32` kullanin.
-
-## 14. Resmi metrikleri hesapla
-
-Calisma klasoru:
+Wrapper komutlari repo kokunde calistirilir:
 
 ```bash
 %cd /content/prompt-injection-defense
 ```
 
-### AlpacaFarm
-
-`alpaca_farm` ciktilarinda hem `asr` hem `win_rate` gorunur.
-Buradaki `win_rate`, tezde Alpaca utility kolonu olarak kullanilacak alandir.
+Model setup icin:
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+%cd /content/prompt-injection-defense/src/model
 ```
 
-### SEP
+Benchmark setup icin:
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+%cd /content/prompt-injection-defense/third_party/Meta_SecAlign
 ```
 
-### CyberSecEval2
+## 11. Wrapper dry-run dogrulamasi
+
+Gercek kosudan once komutlari sadece uretip kontrol et.
+
+### Instruction baseline dry-run
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-provider local_vllm --judge-config judge_config.json
+%cd /content/prompt-injection-defense
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge local_dev --dry-run
 ```
 
-## 15. Aggregate tablo dosyasi uret
+### Instruction defense dry-run
 
-Yalnizca mevcut dosyalari verebilirsin; olmayan dosyalar atlanir.
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge local_dev --dry-run
+```
+
+Dry-run'da kontrol edeceginiz seyler:
+- `Meta_SecAlign/test.py` komutlari basiliyor mu
+- Alpaca / SEP / CySE / TaskTracker komutlari gorunuyor mu
+- defense modunda model yolu `-5DefensiveTokens` olarak cozuluyor mu
+- JSON rapor yolu olusuyor mu
+
+## 12. Ilk gercek resmi kosu
+
+Ilk gercek denemeyi en kucuk resmi kapsamla yap:
+
+### Instruction suite baseline
+
+```bash
+%cd /content/prompt-injection-defense
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge official_api
+```
+
+### Instruction suite defense
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api
+```
+
+Bu komutlar sirasiyla:
+- gerekli modeli/cozumu kontrol eder
+- `Meta_SecAlign` benchmark komutlarini cagirir
+- `summary.tsv` ve ilgili artefact'lari parse eder
+- resmi JSON raporu yazar
+
+## 13. VLLM kullanimi ne zaman var
+
+Bu yeni resmi akista `vLLM` su sekilde kullanilir:
+
+- `Meta_SecAlign` tarafindaki open-weight model inference yolu
+- benchmark testleri ve utility/instruction kosulari
+
+Bu repo icindeki eski `run_inference.py --engine vllm` yolu:
+- sadece legacy / debug yardimcisidir
+- resmi tez tablosu icin birincil yol degildir
+
+Yani Colab'da ayrica bu repodan `run_inference.py` calistirmaniz gerekmez.
+
+## 14. Ilk cikti dogrulamasi
+
+Kosudan sonra:
+
+```bash
+!find docs/raporlar/official -type f | sort
+```
+
+Ornek rapor:
+
+```bash
+!cat docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/instruction/baseline.json
+```
+
+JSON icinde sunlar olmali:
+- `model`
+- `suite`
+- `mode`
+- `judge`
+- `commands`
+- `metrics`
+- `artifacts.summary_tsv`
+
+## 15. Summary.tsv dogrulamasi
+
+Wrapper parse'inin dogru alanlari okuyup okumadigini kontrol et:
+
+```bash
+!find third_party -name summary.tsv
+```
+
+Bulunan ilk dosyayi incele:
+
+```bash
+!cat $(find third_party -name summary.tsv | head -1)
+```
+
+Kontrol edilecek kolonlar:
+- `attack`
+- `ASR/Utility`
+- `test_data`
+
+Not:
+- wrapper su an `summary.tsv` merkezli ilk normalize edici katmandir
+- upstream log formatinda fark cikarsa burasi ince ayar ister
+
+## 16. Utility suite kosulari
+
+Instruction suite oturduktan sonra utility:
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite utility --mode baseline --judge official_api
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite utility --mode defense --judge official_api
+```
+
+Beklenen utility alanlari:
+- `alpacaeval2`
+- `sep_win_rate`
+- `mmlu`
+- `mmlu_pro`
+- `bbh`
+- `ifeval`
+- `gpqa_diamond`
+
+Not:
+- `lm_eval` parse tarafi ilk sahada dogrulanacak kisimlardan biridir
+
+## 17. Agentic suite kosulari
+
+Sonra agentic:
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite agentic --mode baseline --judge official_api
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite agentic --mode defense --judge official_api
+```
+
+Beklenen alanlar:
+- `injecagent_asr`
+- `agentdojo_asr`
+- `agentdojo_utility`
+
+## 18. Tum suite'ler
+
+Hepsi tek seferde:
+
+```bash
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite all --mode baseline --judge official_api
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite all --mode defense --judge official_api
+```
+
+## 19. Aggregate tablo dosyasi
+
+Olusan resmi JSON'lari tek tabloda topla:
 
 ```bash
 !python scripts/build_metrics_table.py \
   --inputs \
-  docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json \
-  docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json \
-  docs/raporlar/metrics_qwen25_7b_sep_baseline.json \
-  docs/raporlar/metrics_qwen25_7b_sep_defense.json \
-  docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json \
-  docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json \
-  --output docs/raporlar/metrics_qwen25_7b_table.json
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/instruction/baseline.json \
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/instruction/defense.json \
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/utility/baseline.json \
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/utility/defense.json \
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/agentic/baseline.json \
+  docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/agentic/defense.json \
+  --output docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/table.json
 ```
 
 Kontrol:
 
 ```bash
-!cat docs/raporlar/metrics_qwen25_7b_table.json
+!cat docs/raporlar/official/Qwen__Qwen2.5-7B-Instruct/table.json
 ```
 
-## En hizli pratik yol
+## 20. Minimum dogrulama checklist
 
-Eger once tek benchmark ile ilerlemek istiyorsan:
+Asagidakiler tamamsa iskelet dogru calisiyor deriz:
 
-1. `vllm` kur
-2. restart et
-3. repo'yu yeniden klonla
-4. sadece ilgili benchmark dataset'ini uret
-5. Qwen setup
-6. baseline + defense inference
-7. judge config olustur
-8. metric hesapla
+1. submodule'lar geldi
+2. bootstrap patch uygulandi
+3. `Meta_SecAlign/setup.py` veri indirdi
+4. `src/model/setup.py` resmi savunmali modeli uretti
+5. `run_official_eval.py --dry-run` dogru komutlari basti
+6. ilk gercek kosu sonunda resmi JSON rapor olustu
+7. `summary.tsv` parse edilebildi
+8. aggregate tablo script'i resmi JSON'lari okuyabildi
 
-Onerilen ilk benchmark:
-- `alpaca_farm`
-- veya `cyberseceval2`
+## 21. Kisa notlar
 
-## Kisa Notlar
-
-- Bu resmi ilk dalga yalnizca `alpaca_farm`, `sep`, `cyberseceval2` icindir.
-- `TaskTracker`, `InjecAgent`, `AgentDojo` sonraki fazdadir.
-- `paper` evaluator judge config olmadan calismaz.
-- Gecici ucretsiz yol olarak `--judge-provider local_transformers` kullanilabilir.
-- Daha hizli gecici ucretsiz yol olarak `--judge-provider local_vllm` kullanilabilir.
-- TODO: final tez kosularinda API tabanli judge ile son tablolar yeniden alinmalidir.
-- `alpaca_farm` utility kolonu icin `win_rate` alanini kullan.
-- `run_inference.py` varsayilan olarak `transformers` motoru kullanir; hiz icin `--engine vllm` desteklenir.
-- Colab runtime reset olursa repo ve `/content` altindaki dosyalari yeniden olusturman gerekir.
+- Resmi paper yolu `DefensiveToken + Meta_SecAlign` stack'idir.
+- `src/data/build_dataset.py`, `src/evaluation/compute_metrics.py`, `src/model/run_inference.py` resmi yol olarak kullanilmaz.
+- Bu eski yol sadece `legacy` / debug amaclidir.
+- `local_dev` judge veya local custom evaluator ile alinmis sonuclar final tez tablosu sayilmaz.
+- Final tablolar icin `official_api` zorunlu kabul edilir.

@@ -1,57 +1,64 @@
 # Benchmark Veri Notlari
 
-Bu repo, tez odakli resmi ilk dalga benchmark entegrasyonunda su kaynaklari hedefler:
+Bu belge resmi paper-aligned benchmark kaynaklarini ve hangi script ile calistirildiklarini ozetler.
 
-- AlpacaFarm
-- SEP
-- CyberSecEval2
+## Resmi kaynak ilke
 
-Ilk resmi dalgada `TaskTracker`, `InjecAgent` ve `AgentDojo` desteklenmez.
+Bu repo benchmark mantigini yeniden tanimlamaz.
+Resmi benchmark dosyalari ve evaluator akisi `third_party/Meta_SecAlign` tarafindan yonetilir.
 
-## Beklenen ham veri klasorleri
+## Instruction-following benchmarklari
 
-Ham veri dosyalari su klasorlerde tutulur:
+- `AlpacaFarm-Hacked`
+  - resmi script: `third_party/Meta_SecAlign/test.py`
+  - attack seti: `none`, `ignore`, `completion`, `completion_ignore`
+  - resmi utility kolonu: `AlpacaEval2 WinRate`
+- `SEP`
+  - resmi script: `third_party/Meta_SecAlign/test.py`
+  - attack seti: `none`, `ignore`, `ignore_before`
+  - utility: resmi reference + AlpacaEval2 prompting yolu
+- `TaskTracker`
+  - resmi script: `third_party/Meta_SecAlign/test.py`
+  - attack seti: `straightforward`
+- `CyberSecEval2`
+  - resmi script: `third_party/Meta_SecAlign/test.py`
+  - attack seti: `straightforward`
 
-- `data/raw/alpaca_farm/`
-- `data/raw/sep/`
-- `data/raw/cyberseceval2/`
+## Utility benchmarklari
 
-Makaledeki desteklenen benchmarklar icin ham veriyi otomatik indirmek istersen:
+- `AlpacaEval2`
+- `SEP utility`
+- `MMLU`
+- `MMLU-Pro`
+- `BBH`
+- `IFEval`
+- `GPQA Diamond`
 
-```bash
-python scripts/fetch_defensivetokens_datasets.py
-```
+Resmi utility script'i:
 
-## Beklenen alanlar
+- `third_party/Meta_SecAlign/test_lm_eval.py`
 
-### AlpacaFarm
+## Agentic benchmarklar
 
-Adapter su alanlari kullanir:
-- `instruction`
-- `input`
-- `output`
-- `dataset`
-- `datasplit`
+- `InjecAgent`
+  - resmi script: `third_party/Meta_SecAlign/test_injecagent.py`
+- `AgentDojo`
+  - resmi script: `third_party/Meta_SecAlign/test_agentdojo.py`
 
-Security satirlari makale-benzeri Alpaca varyantlari ile uretilir.
+## Bu repodaki rol
 
-### SEP
+Bu repo su gorevleri yapar:
+- official submodule bootstrap
+- DefensiveToken model hazirlama wrapper'i
+- resmi komutlari orkestre etme
+- resmi ciktilari JSON rapora normalize etme
+- Colab ve tez raporlama akisini duzenleme
 
-Adapter su alias alanlardan uygun olanlari secmeye calisir:
-- instruction: `instruction`, `instruction_prompt`, `prompt`, `system_prompt`, `task_prompt`
-- data: `data`, `data_prompt`, `input`, `content`, `document`, `text`
-- injection: `injection`, `probe`, `attack`, `malicious_prompt`, `trigger`
-- witness/reference: `witness`, `expected_output`, `reference_output`
+Bu repo artik su gorevleri resmi yol olarak yapmaz:
+- benchmark datasetlerini kendi adapter'lari ile yeniden kurma
+- custom `ASR` / `utility` heuristigi tanimlama
+- resmi metrikleri repo icinde yeniden yorumlama
 
-### CyberSecEval2
+## Legacy notu
 
-Adapter su alias alanlardan uygun olanlari secmeye calisir:
-- instruction: `instruction`, `prompt`, `system_prompt`, `user_instruction`, `question`
-- data: `data_with_injection`, `data`, `context`, `prompt_injection`, `input`, `content`
-- judge: `judge_question`, `judge_hint`, `success_criteria`
-
-## Lisans ve kullanim notlari
-
-- AlpacaFarm README, verinin arastirma amacli ve `CC BY-NC 4.0` oldugunu belirtir.
-- SEP ve CyberSecEval2 verilerini projeye eklemeden once kendi lisans ve kullanim kosullarini kontrol et.
-- Bu repo benchmark verisini varsayilan olarak commit etmeye zorlamaz; `data/raw` altina runtime sirasinda yerlestirilmesi beklenir.
+`src/data/*` ve `src/evaluation/*` altindaki custom veri/evaluator kodlari korunur, ancak yalnizca `legacy` / debug amacli kabul edilir.

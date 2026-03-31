@@ -1,98 +1,19 @@
 # Evaluation Module
 
-This folder contains the official metric pipeline for thesis experiments.
+This folder now contains the legacy in-repo evaluation pipeline.
 
-## Input format
+Important:
+- The official paper-aligned path is no longer this folder.
+- Final thesis tables must be produced through `third_party/Meta_SecAlign` and `scripts/run_official_eval.py`.
 
-`compute_metrics.py` expects:
+What remains here:
+- custom evaluator experiments
+- local debug utilities
+- temporary development-only judge helpers
 
-1. Dataset JSONL (`--dataset`) with fields:
-- `id`
-- `benchmark`
-- `instruction`
-- `untrusted_data`
-- `injection`
-- `attack_type`
-- `expected_task`
-- `judge_hint` (optional)
-- `metadata` (optional object)
+What is official now:
+- benchmark execution: `third_party/Meta_SecAlign`
+- DefensiveToken model preparation: `third_party/DefensiveToken`
+- orchestration and report normalization: `scripts/run_official_eval.py`
 
-2. Prediction JSONL (`--predictions`) with fields:
-- `id`
-- `output`
-
-Optional prediction metadata such as `benchmark`, `attack_type`, `model_name`, and `defense_mode` is preserved but not required.
-
-## Evaluator mode
-
-- `paper`: official benchmark-aware evaluator for the first thesis wave.
-
-## Judge integration
-
-`paper` mode requires a configured judge provider.
-
-Supported CLI options:
-- `--judge-provider openai_compatible`
-- `--judge-provider local_transformers`
-- `--judge-provider local_vllm`
-- `--judge-model <model_name>`
-- `--judge-config <json_path>`
-
-Judge configuration is required in official mode. The evaluator does not silently fall back.
-
-Expected config keys in `--judge-config` JSON:
-- `model`
-- `api_key` (`openai_compatible` only)
-- `base_url` (`openai_compatible` only)
-- `timeout` (optional)
-- `max_new_tokens` (`local_transformers` only, optional)
-- `max_new_tokens` (`local_transformers` / `local_vllm`, optional)
-- `trust_remote_code` (`local_transformers` only, optional)
-- `trust_remote_code` (`local_transformers` / `local_vllm`, optional)
-- `gpu_memory_utilization` (`local_vllm` only, optional)
-
-Environment variable fallback is also supported:
-- `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
-- `OPENAI_JUDGE_MODEL`
-- `OPENAI_JUDGE_TIMEOUT`
-- `LOCAL_JUDGE_MAX_NEW_TOKENS`
-- `LOCAL_JUDGE_TRUST_REMOTE_CODE`
-- `LOCAL_JUDGE_GPU_MEMORY_UTILIZATION`
-
-Free temporary thesis path:
-- `local_transformers` can run a local judge model such as `meta-llama/Meta-Llama-3-8B-Instruct`.
-- `local_vllm` is the faster free local-judge path when Colab GPU memory is sufficient.
-- This is a cost-saving temporary setup.
-- Before final thesis runs, replace it with the intended API-based judge and record that switch in methodology notes.
-
-## Benchmark-aware behavior
-
-- `alpaca_farm`: official mode reports `ASR` and `win_rate`.
-- `sep`: official mode reports judge-based security and utility.
-- `cyberseceval2`: official mode reports judge-question-driven security.
-
-Unsupported in the first official wave:
-- `tasktracker`
-- `manual`
-
-## Output
-
-The output JSON keeps:
-- `benchmark`
-- `mode`
-- `asr`
-- `utility`
-- `by_benchmark`
-- `attack_success_count`
-- `utility_success_count`
-- `security_samples`
-- `utility_samples`
-
-It also adds:
-- `evaluator_mode`
-- `judge_provider`
-- `judge_enabled`
-
-For `alpaca_farm`, the output also includes:
-- `win_rate`
+If you need paper-equivalent results, do not use `src/evaluation/compute_metrics.py` as the primary path.

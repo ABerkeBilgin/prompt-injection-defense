@@ -1,0 +1,8 @@
+[submodule "third_party/DefensiveToken"]
+	path = third_party/DefensiveToken
+	url = https://github.com/Sizhe-Chen/DefensiveToken.git
+	branch = main
+[submodule "third_party/Meta_SecAlign"]
+	path = third_party/Meta_SecAlign
+	url = https://github.com/facebookresearch/Meta_SecAlign.git
+	branch = main

@@ -29,6 +29,17 @@ def build_rows(paths: list[Path]) -> list[dict]:
         if not path.exists():
             continue
         payload = read_json(path)
+        if "metrics" in payload and "suite" in payload:
+            rows.append(
+                {
+                    "model": payload.get("model", infer_model_from_name(path)),
+                    "suite": payload.get("suite"),
+                    "mode": payload.get("mode", infer_defense_from_name(path, payload)),
+                    "judge": payload.get("judge", "unknown"),
+                    **payload.get("metrics", {}),
+                }
+            )
+            continue
         model_name = infer_model_from_name(path)
         defense_mode = infer_defense_from_name(path, payload)
         for benchmark_result in payload.get("by_benchmark", []):
