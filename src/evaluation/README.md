@@ -29,26 +29,36 @@ Optional prediction metadata such as `benchmark`, `attack_type`, `model_name`, a
 
 ## Judge integration
 
-`paper` mode can use an OpenAI-compatible judge endpoint.
+`paper` mode requires a configured judge provider.
 
 Supported CLI options:
 - `--judge-provider openai_compatible`
+- `--judge-provider local_transformers`
 - `--judge-model <model_name>`
 - `--judge-config <json_path>`
 
 Judge configuration is required in official mode. The evaluator does not silently fall back.
 
 Expected config keys in `--judge-config` JSON:
-- `api_key`
-- `base_url`
 - `model`
+- `api_key` (`openai_compatible` only)
+- `base_url` (`openai_compatible` only)
 - `timeout` (optional)
+- `max_new_tokens` (`local_transformers` only, optional)
+- `trust_remote_code` (`local_transformers` only, optional)
 
 Environment variable fallback is also supported:
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL`
 - `OPENAI_JUDGE_MODEL`
 - `OPENAI_JUDGE_TIMEOUT`
+- `LOCAL_JUDGE_MAX_NEW_TOKENS`
+- `LOCAL_JUDGE_TRUST_REMOTE_CODE`
+
+Free temporary thesis path:
+- `local_transformers` can run a local judge model such as `meta-llama/Meta-Llama-3-8B-Instruct`.
+- This is a cost-saving temporary setup.
+- Before final thesis runs, replace it with the intended API-based judge and record that switch in methodology notes.
 
 ## Benchmark-aware behavior
 

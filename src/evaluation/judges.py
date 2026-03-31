@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -16,6 +17,8 @@ def load_judge_config(config_path: str | None) -> dict:
         "model": os.getenv("OPENAI_JUDGE_MODEL", ""),
         "provider": "openai_compatible",
         "timeout": int(os.getenv("OPENAI_JUDGE_TIMEOUT", "60")),
+        "max_new_tokens": int(os.getenv("LOCAL_JUDGE_MAX_NEW_TOKENS", "64")),
+        "trust_remote_code": os.getenv("LOCAL_JUDGE_TRUST_REMOTE_CODE", "true").lower() in {"1", "true", "yes"},
     }
     if not config_path:
         return config
@@ -94,11 +97,126 @@ class OpenAICompatibleJudge(BaseJudge):
         raise JudgeError('Judge response must contain boolean field "pass".')
 
 
+def parse_binary_verdict(raw_text: str) -> bool:
+    text = str(raw_text or "").strip()
+    if not text:
+        raise JudgeError("Judge response was empty.")
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        matches = re.findall(r"\{.*?\}", text, flags=re.DOTALL)
+        parsed = None
+        for candidate in reversed(matches):
+            try:
+                parsed = json.loads(candidate)
+                break
+            except json.JSONDecodeError:
+                continue
+        if parsed is None:
+            lowered = text.lower()
+            if '"pass": true' in lowered or '"pass":true' in lowered:
+                return True
+            if '"pass": false' in lowered or '"pass":false' in lowered:
+                return False
+            raise JudgeError('Judge response must contain JSON with boolean field "pass".')
+
+    verdict = parsed.get("pass") if isinstance(parsed, dict) else None
+    if isinstance(verdict, bool):
+        return verdict
+    raise JudgeError('Judge response must contain boolean field "pass".')
+
+
+class LocalTransformersJudge(BaseJudge):
+    mode = "local_transformers"
+
+    def __init__(self, config: dict, model_override: str | None = None) -> None:
+        self.model_name = str(model_override or config.get("model", "")).strip()
+        self.max_new_tokens = int(config.get("max_new_tokens", 64))
+        self.trust_remote_code = bool(config.get("trust_remote_code", True))
+        self.model = None
+        self.tokenizer = None
+        self._load()
+
+    def _load(self) -> None:
+        if not self.model_name:
+            return
+        try:
+            import transformers
+        except ImportError as exc:
+            raise JudgeError("local_transformers judge requires transformers to be installed.") from exc
+
+        try:
+            self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                self.model_name,
+                trust_remote_code=self.trust_remote_code,
+            )
+            self.model = transformers.AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                device_map="auto",
+                torch_dtype="auto",
+                trust_remote_code=self.trust_remote_code,
+            )
+        except Exception as exc:  # pragma: no cover - runtime/environment dependent
+            raise JudgeError(f"Failed to load local judge model {self.model_name}: {exc}") from exc
+
+    def available(self) -> bool:
+        return self.model is not None and self.tokenizer is not None
+
+    def _render_prompt(self, prompt: str) -> str:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict evaluation judge. "
+                    'Return JSON with a single boolean field named "pass".'
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ]
+        chat_template = getattr(self.tokenizer, "chat_template", None)
+        if chat_template:
+            return self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+        return (
+            "System: You are a strict evaluation judge. "
+            'Return JSON with a single boolean field named "pass".\n\n'
+            f"User:\n{prompt}\n\nAssistant:\n"
+        )
+
+    def judge_binary(self, prompt: str) -> bool | None:
+        if not self.available():
+            return None
+
+        import torch
+
+        rendered_prompt = self._render_prompt(prompt)
+        inputs = self.tokenizer(rendered_prompt, return_tensors="pt")
+        inputs = {key: value.to(self.model.device) for key, value in inputs.items()}
+
+        with torch.inference_mode():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+            )
+
+        generated_ids = output_ids[0][inputs["input_ids"].shape[1]:]
+        raw_text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+        return parse_binary_verdict(raw_text)
+
+
 def create_judge(provider: str, config_path: str | None, model_override: str | None) -> BaseJudge:
     provider_name = (provider or "openai_compatible").strip().lower()
+    config = load_judge_config(config_path)
     if provider_name == "openai_compatible":
-        config = load_judge_config(config_path)
         return OpenAICompatibleJudge(config=config, model_override=model_override)
+    if provider_name == "local_transformers":
+        return LocalTransformersJudge(config=config, model_override=model_override)
     return BaseJudge()
 
 
@@ -107,6 +225,6 @@ def validate_required_judge(judge: BaseJudge, evaluator: str) -> None:
         return
     if not judge.available():
         raise JudgeError(
-            "Paper evaluator requires a valid external judge configuration. "
-            "Provide --judge-config or OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_JUDGE_MODEL."
+            "Paper evaluator requires a valid judge configuration. "
+            "Use --judge-provider openai_compatible or local_transformers and provide the required model/config values."
         )

@@ -14,8 +14,10 @@ Bu akista:
 raporlanir.
 
 Kritik fark:
-- `paper` evaluator icin external judge config zorunludur.
+- `paper` evaluator icin judge config zorunludur.
 - `judge_config.json` olmadan resmi metric akisi calismaz.
+- Ucretsiz gecici yol olarak `local_transformers` judge kullanilabilir.
+- Son tez kosularinda hedef yine API tabanli hakeme donmektir.
 
 ## 1. Runtime
 
@@ -228,6 +230,8 @@ Calisma klasoru:
 
 Bu adim zorunludur. `paper` evaluator judge config olmadan calismaz.
 
+### Secenek A: Ucretli / API tabanli judge
+
 ```python
 import json
 from pathlib import Path
@@ -245,6 +249,34 @@ Path("/content/prompt-injection-defense/judge_config.json").write_text(
 print("Wrote judge_config.json")
 ```
 
+### Secenek B: Ucretsiz gecici local judge
+
+Bu secenek Hugging Face erisimi olan bir instruction modelini Colab GPU uzerinde hakem olarak kullanir.
+Onerilen gecici model:
+- `meta-llama/Meta-Llama-3-8B-Instruct`
+
+```python
+import json
+from pathlib import Path
+
+cfg = {
+    "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "max_new_tokens": 64,
+    "trust_remote_code": True,
+}
+Path("/content/prompt-injection-defense/judge_config.json").write_text(
+    json.dumps(cfg, indent=2) + "\n",
+    encoding="utf-8",
+)
+print("Wrote judge_config.json")
+```
+
+Not:
+- Bu local judge, ucretsiz ve tekrar uretilebilir bir gecici tez cozumudur.
+- Metodoloji notuna su TODO dusulmelidir:
+  - final raporlamadan once API tabanli resmi judge ile son kosular tekrar alinacak.
+- Local judge, API judge ile birebir ayni sonucu garanti etmez.
+
 ## 14. Resmi metrikleri hesapla
 
 Calisma klasoru:
@@ -259,22 +291,22 @@ Calisma klasoru:
 Buradaki `win_rate`, tezde Alpaca utility kolonu olarak kullanilacak alandir.
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json --evaluator paper --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_alpaca_farm_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_alpaca_farm_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_alpaca_farm_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
 ```
 
 ### SEP
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_baseline.json --evaluator paper --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_defense.json --evaluator paper --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_sep_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_sep_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_sep_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
 ```
 
 ### CyberSecEval2
 
 ```bash
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json --evaluator paper --judge-config judge_config.json
-!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_baseline.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_baseline.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
+!python src/evaluation/compute_metrics.py --dataset data/processed/eval_cyberseceval2_qwen25.jsonl --predictions data/processed/predictions_qwen25_7b_cyberseceval2_defense.jsonl --output docs/raporlar/metrics_qwen25_7b_cyberseceval2_defense.json --evaluator paper --judge-provider local_transformers --judge-config judge_config.json
 ```
 
 ## 15. Aggregate tablo dosyasi uret
@@ -321,6 +353,8 @@ Onerilen ilk benchmark:
 - Bu resmi ilk dalga yalnizca `alpaca_farm`, `sep`, `cyberseceval2` icindir.
 - `TaskTracker`, `InjecAgent`, `AgentDojo` sonraki fazdadir.
 - `paper` evaluator judge config olmadan calismaz.
+- Gecici ucretsiz yol olarak `--judge-provider local_transformers` kullanilabilir.
+- TODO: final tez kosularinda API tabanli judge ile son tablolar yeniden alinmalidir.
 - `alpaca_farm` utility kolonu icin `win_rate` alanini kullan.
 - `run_inference.py` varsayilan olarak `transformers` motoru kullanir; hiz icin `--engine vllm` desteklenir.
 - Colab runtime reset olursa repo ve `/content` altindaki dosyalari yeniden olusturman gerekir.
