@@ -40,19 +40,32 @@ Eger burada `torch 2.9.0` gibi farkli bir seri goruyorsan veya ayni dependency c
 !hf auth whoami
 ```
 
-5. Benchmark ham verilerini yerlestir:
+5. Benchmark ham verilerini indir:
 
 ```bash
-!mkdir -p data/raw/alpaca_farm data/raw/sep data/raw/cyberseceval2
+!python scripts/fetch_defensivetokens_datasets.py
 ```
 
-Ham `.json` veya `.jsonl` benchmark dosyalarini bu klasorlere kopyala. Beklenen alanlar ve klasor yapisi icin `docs/BENCHMARK_VERI_NOTLARI.md` dosyasina bak.
+Bu komut su klasorlere repo ile uyumlu ham veri dosyalarini indirir:
+
+- `data/raw/alpaca_farm/`
+- `data/raw/sep/`
+- `data/raw/cyberseceval2/`
+
+Not: DefensiveTokens makalesinde ayrica `TaskTracker`, `InjecAgent` ve `AgentDojo` da kullaniliyor. Bu repo su anda yalnizca yukaridaki uc benchmark icin veri hazirlama akisini destekliyor.
 
 6. Dataset uret:
 
 ```bash
 !python src/data/build_dataset.py --source all --mode security --output data/processed/eval_security_combined.jsonl
 !python src/data/build_dataset.py --source alpaca_farm --mode utility --output data/processed/eval_utility.jsonl
+```
+
+Istersen dataset olustuktan sonra satir sayisini hizlica kontrol et:
+
+```bash
+!wc -l data/processed/eval_security_combined.jsonl
+!wc -l data/processed/eval_utility.jsonl
 ```
 
 7. Baseline inference (savunma kapali):
@@ -92,6 +105,7 @@ Ham `.json` veya `.jsonl` benchmark dosyalarini bu klasorlere kopyala. Beklenen 
 - `pip` dependency conflict uyarisi alirsan `!python -m pip show torch torchvision torchaudio` ile surumleri kontrol et; bu uc paketin ayni seri olmasi gerekir.
 - `build_dataset.py` icin varsayilan ham veri kok dizini `data/raw` klasorudur.
 - Security benchmarklari icin `asr`, utility benchmarklari icin `utility`, toplu datasetlerde ise her ikisi birden raporlanir.
+- Bu repo ile uretilen metrikler makaledeki tum tablo degerlerini birebir yeniden olusturmaz; cunku `TaskTracker`, `InjecAgent`, `AgentDojo` entegrasyonu ve makaledeki tam evaluation harness burada yoktur.
 
 ## Hizli Smoke Test (Calisiyor mu Kontrolu)
 

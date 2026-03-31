@@ -6,6 +6,8 @@ Bu repo ilk benchmark entegrasyonunda su kaynaklari hedefler:
 - SEP
 - CyberSecEval2
 
+DefensiveTokens makalesinde bunlara ek olarak `TaskTracker`, `InjecAgent` ve `AgentDojo` da kullanilir. Bu repo su anda bu uc ek benchmark icin adapter icermemektedir.
+
 ## Beklenen ham veri klasorleri
 
 Ham veri dosyalarini manuel olarak su klasorlere yerlestir:
@@ -15,6 +17,12 @@ Ham veri dosyalarini manuel olarak su klasorlere yerlestir:
 - `data/raw/cyberseceval2/`
 
 Adapterlar bu klasorler altinda recursive olarak `.json` ve `.jsonl` dosyalari arar.
+
+Makaledeki desteklenen mevcut uc benchmark icin ham veriyi otomatik indirmek istersen:
+
+```bash
+python scripts/fetch_defensivetokens_datasets.py
+```
 
 ## Beklenen alanlar
 
