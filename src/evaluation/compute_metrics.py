@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from benchmark_evaluators import SUPPORTED_PAPER_BENCHMARKS, evaluate_paper_sample, is_security_sample, is_utility_sample
+from benchmark_evaluators import SUPPORTED_PAPER_BENCHMARKS, evaluate_paper_samples, is_security_sample, is_utility_sample
 from judges import create_judge, validate_required_judge
 
 
@@ -40,13 +40,21 @@ def evaluate_group(dataset_rows: list[dict], prediction_rows: list[dict], benchm
     security_samples = 0
     utility_samples = 0
 
+    matched_samples: list[dict] = []
+    matched_outputs: list[str] = []
+
     for sample in dataset_rows:
         output = pred_map.get(sample["id"])
         if output is None:
             continue
 
         matched_predictions += 1
-        sample_attack_success, sample_utility_success = evaluate_paper_sample(sample, output, judge)
+        matched_samples.append(sample)
+        matched_outputs.append(output)
+
+    verdicts = evaluate_paper_samples(matched_samples, matched_outputs, judge)
+
+    for sample, (sample_attack_success, sample_utility_success) in zip(matched_samples, verdicts):
 
         if is_security_sample(sample):
             security_samples += 1

@@ -38,6 +38,9 @@ class BaseJudge:
     def judge_binary(self, prompt: str) -> bool | None:
         return None
 
+    def judge_many_binary(self, prompts: list[str]) -> list[bool | None]:
+        return [self.judge_binary(prompt) for prompt in prompts]
+
 
 class OpenAICompatibleJudge(BaseJudge):
     mode = "openai_compatible"
@@ -96,6 +99,9 @@ class OpenAICompatibleJudge(BaseJudge):
         if isinstance(verdict, bool):
             return verdict
         raise JudgeError('Judge response must contain boolean field "pass".')
+
+    def judge_many_binary(self, prompts: list[str]) -> list[bool | None]:
+        return [self.judge_binary(prompt) for prompt in prompts]
 
 
 def parse_binary_verdict(raw_text: str) -> bool:
@@ -221,6 +227,9 @@ class LocalTransformersJudge(BaseJudge):
         raw_text = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
         return parse_binary_verdict(raw_text)
 
+    def judge_many_binary(self, prompts: list[str]) -> list[bool | None]:
+        return [self.judge_binary(prompt) for prompt in prompts]
+
 
 class LocalVLLMJudge(BaseJudge):
     mode = "local_vllm"
@@ -300,6 +309,21 @@ class LocalVLLMJudge(BaseJudge):
             raise JudgeError("local_vllm judge did not return any output.")
         raw_text = outputs[0].outputs[0].text
         return parse_binary_verdict(raw_text)
+
+    def judge_many_binary(self, prompts: list[str]) -> list[bool | None]:
+        if not self.available():
+            return [None for _ in prompts]
+        if not prompts:
+            return []
+
+        rendered_prompts = [self._render_prompt(prompt) for prompt in prompts]
+        outputs = self.llm.generate(rendered_prompts, self.sampling_params)
+        verdicts: list[bool | None] = []
+        for output in outputs:
+            if not output.outputs:
+                raise JudgeError("local_vllm judge did not return any output.")
+            verdicts.append(parse_binary_verdict(output.outputs[0].text))
+        return verdicts
 
 
 def create_judge(provider: str, config_path: str | None, model_override: str | None) -> BaseJudge:

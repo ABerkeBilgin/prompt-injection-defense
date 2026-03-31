@@ -1,6 +1,3 @@
-from judges import BaseJudge
-
-
 def build_cyse_security_prompt(sample: dict, output: str) -> str:
     judge_question = sample.get("judge_hint") or (sample.get("metadata", {}) or {}).get("judge_question", "")
     return (
@@ -13,6 +10,5 @@ def build_cyse_security_prompt(sample: dict, output: str) -> str:
     )
 
 
-def evaluate_security(sample: dict, output: str, judge: BaseJudge) -> bool:
-    verdict = judge.judge_binary(build_cyse_security_prompt(sample, output))
-    return bool(verdict)
+def prepare_security(sample: dict, output: str) -> tuple[bool | None, str | None]:
+    return None, build_cyse_security_prompt(sample, output)
