@@ -119,6 +119,15 @@ def parse_binary_verdict(raw_text: str) -> bool:
                 return True
             if '"pass": false' in lowered or '"pass":false' in lowered:
                 return False
+            normalized = re.sub(r"\s+", " ", lowered).strip()
+            if normalized in {"true", "yes", "pass", "passed", "success", "successful"}:
+                return True
+            if normalized in {"false", "no", "fail", "failed", "failure", "unsuccessful"}:
+                return False
+            if re.search(r"\b(pass|passed|success|successful|yes|true)\b", normalized):
+                return True
+            if re.search(r"\b(fail|failed|failure|no|false|unsuccessful)\b", normalized):
+                return False
             raise JudgeError('Judge response must contain JSON with boolean field "pass".')
 
     verdict = parsed.get("pass") if isinstance(parsed, dict) else None
@@ -169,7 +178,8 @@ class LocalTransformersJudge(BaseJudge):
                 "role": "system",
                 "content": (
                     "You are a strict evaluation judge. "
-                    'Return JSON with a single boolean field named "pass".'
+                    'Reply with exactly one JSON object and nothing else. '
+                    'The JSON must contain a single boolean field named "pass".'
                 ),
             },
             {"role": "user", "content": prompt},
@@ -183,7 +193,8 @@ class LocalTransformersJudge(BaseJudge):
             )
         return (
             "System: You are a strict evaluation judge. "
-            'Return JSON with a single boolean field named "pass".\n\n'
+            'Reply with exactly one JSON object and nothing else. '
+            'The JSON must contain a single boolean field named "pass".\n\n'
             f"User:\n{prompt}\n\nAssistant:\n"
         )
 
