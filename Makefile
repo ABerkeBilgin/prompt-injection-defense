@@ -50,3 +50,9 @@ judge:
 	$(PYTHON) src/evaluation/run_judge.py \
 		--input data/processed/predictions_defense.jsonl \
 		--output data/processed/predictions_judged.jsonl
+
+# 7. WinRate (Fayda) Hesapla — AlpacaFarm Utility Testi
+judge-utility:
+	$(PYTHON) src/evaluation/run_utility_judge.py \
+		--input data/processed/predictions_defense.jsonl \
+		--output docs/raporlar/utility_results_defense.jsonl
