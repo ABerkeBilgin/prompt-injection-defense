@@ -32,6 +32,7 @@ from .utils import (
     judge_injection_following,
     summary_results,
     tokenizer_uses_defensive_tokens,
+    resolve_base_model_path,
 )
 def get_injected_prompt(d_item):
     if 'injection' in d_item: return d_item['injection']
