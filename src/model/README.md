@@ -1,15 +1,11 @@
 # Model Module
 
-This folder now serves two roles:
+Bu dizin artik first-party DefensiveToken akisina baglidir.
 
-1. Official wrapper entrypoints
-- `setup.py`: calls the official `third_party/DefensiveToken/setup.py` by default
+- `setup.py`: repo icindeki `src.official_stacks.defensivetoken` modulu ile savunmali modeli olusturur
+- `run_inference.py`: baseline veya defended model ile yerel batch inference yapar
+- `demo.py`: defended model icin kucuk ornek prompt akisini gosterir
 
-2. Legacy local implementation
-- `setup_legacy_local.py`: the old in-repo embedding patch path, kept only for debugging or fallback
-- `run_inference.py`: legacy/custom local inference helper
-
-Official paper-aligned flow:
-- prepare defended model via `src/model/setup.py`
-- run benchmark evaluation through `scripts/run_official_eval.py`
-- do not treat `run_inference.py` as the primary official evaluation path
+Ana yol:
+1. `python src/model/setup.py Qwen/Qwen2.5-7B-Instruct`
+2. `python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api`

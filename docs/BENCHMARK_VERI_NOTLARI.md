@@ -1,64 +1,18 @@
 # Benchmark Veri Notlari
 
-Bu belge resmi paper-aligned benchmark kaynaklarini ve hangi script ile calistirildiklarini ozetler.
+Bu repo artik resmi benchmark akisinin first-party kopyasini kullanir.
 
-## Resmi kaynak ilke
+## Resmi harness
+- instruction ve utility benchmark scriptleri: `src/official_stacks/meta_secalign/test.py`
+- lm-eval utility scripti: `src/official_stacks/meta_secalign/test_lm_eval.py`
+- agentic benchmark scriptleri: `src/official_stacks/meta_secalign/test_injecagent.py` ve `src/official_stacks/meta_secalign/test_agentdojo.py`
+- orchestration: `scripts/run_official_eval.py`
 
-Bu repo benchmark mantigini yeniden tanimlamaz.
-Resmi benchmark dosyalari ve evaluator akisi `third_party/Meta_SecAlign` tarafindan yonetilir.
+## DefensiveToken entegrasyonu
+- trusted instruction rolu: `system`
+- untrusted data rolu: `user`
+- savunmali tokenizer/model kullanildiginda official harness `add_defensive_tokens=True` ile tokenlari prompt basina ekler
 
-## Instruction-following benchmarklari
-
-- `AlpacaFarm-Hacked`
-  - resmi script: `third_party/Meta_SecAlign/test.py`
-  - attack seti: `none`, `ignore`, `completion`, `completion_ignore`
-  - resmi utility kolonu: `AlpacaEval2 WinRate`
-- `SEP`
-  - resmi script: `third_party/Meta_SecAlign/test.py`
-  - attack seti: `none`, `ignore`, `ignore_before`
-  - utility: resmi reference + AlpacaEval2 prompting yolu
-- `TaskTracker`
-  - resmi script: `third_party/Meta_SecAlign/test.py`
-  - attack seti: `straightforward`
-- `CyberSecEval2`
-  - resmi script: `third_party/Meta_SecAlign/test.py`
-  - attack seti: `straightforward`
-
-## Utility benchmarklari
-
-- `AlpacaEval2`
-- `SEP utility`
-- `MMLU`
-- `MMLU-Pro`
-- `BBH`
-- `IFEval`
-- `GPQA Diamond`
-
-Resmi utility script'i:
-
-- `third_party/Meta_SecAlign/test_lm_eval.py`
-
-## Agentic benchmarklar
-
-- `InjecAgent`
-  - resmi script: `third_party/Meta_SecAlign/test_injecagent.py`
-- `AgentDojo`
-  - resmi script: `third_party/Meta_SecAlign/test_agentdojo.py`
-
-## Bu repodaki rol
-
-Bu repo su gorevleri yapar:
-- official submodule bootstrap
-- DefensiveToken model hazirlama wrapper'i
-- resmi komutlari orkestre etme
-- resmi ciktilari JSON rapora normalize etme
-- Colab ve tez raporlama akisini duzenleme
-
-Bu repo artik su gorevleri resmi yol olarak yapmaz:
-- benchmark datasetlerini kendi adapter'lari ile yeniden kurma
-- custom `ASR` / `utility` heuristigi tanimlama
-- resmi metrikleri repo icinde yeniden yorumlama
-
-## Legacy notu
-
-`src/data/*` ve `src/evaluation/*` altindaki custom veri/evaluator kodlari korunur, ancak yalnizca `legacy` / debug amacli kabul edilir.
+## Konfig dosyalari
+- `src/official_stacks/meta_secalign/data/openai_configs.yaml`
+- `src/official_stacks/meta_secalign/data/gemini_configs.yaml`

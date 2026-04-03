@@ -1,28 +1,20 @@
-## 📂 Proje Mimarisi
+# Prompt Injection Defense
 
-Proje, yapay zeka araştırma standartları ile yazılım mühendisliği disiplinini birleştiren aşağıdaki modüler yapıya sahiptir:
+Bu repo artik `DefensiveToken` ve `Meta_SecAlign` akisini dogrudan kendi icinde barindirir. Dis repo clone, patch-script ve ayri bagimlilik akisi kaldirilmistir.
 
-```text
-prompt-injection-defense/
-├── .github/                      # Takım çalışması ve otomasyon ayarları (PR, Issue şablonları)
-├── app/                          # Proje bitiminde sunulacak canlı demo arayüzü (Streamlit/Gradio)
-├── data/                         # Veri setleri (Git'e eklenmez)
-│   ├── processed/                # İşlenmiş, modelin okuyabileceği veriler
-│   └── raw/                      # Cleaned Alpaca, TaskTracker gibi ham veriler
-├── docs/                         # Tüm yazılı içerikler ve akademik belgeler
-│   ├── literatur/                # Baz makale (DefensiveTokens) ve referans makaleler
-│   ├── raporlar/                 # İlerleme raporları ve inceleme notları
-│   └── tez_taslagi/              # Bitirme tezinin taslak dosyaları
-├── notebooks/                    # Keşifsel veri analizi ve grafik (ASR vs Utility) çizimleri
-├── scripts/                      # Eğitim ve test işlemlerini terminalden başlatan bash betikleri
-├── src/                          # Asıl Python kaynak kodları (Modüler yapı)
-│   ├── data/                     # Veri indirme ve temizleme kodları
-│   ├── evaluation/               # ASR ve WinRate hesaplama metotları
-│   └── model/                    # Model yükleme ve token optimizasyon mantığı
-├── .gitignore                    # İstenmeyen dosyaların (ağırlıklar, büyük veriler) Git'e gitmesini engelleyen kurallar
-├── docker-compose.yml            # Demo arayüzünü izole ortamda ayağa kaldırma dosyası
-├── Dockerfile                    # Sanal ortam kurulum adımları
-├── LICENSE                       # Projenin açık kaynak lisansı
-├── Makefile                      # "make train", "make eval" gibi terminal komut kısayolları
-├── README.md                     # Projenin vitrini
-└── requirements.txt              # Gerekli Python kütüphaneleri listesi
+## Ana akis
+- Savunmali model hazirlama: `python src/model/setup.py Qwen/Qwen2.5-7B-Instruct`
+- Resmi benchmark orkestrasyonu: `python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api`
+- Yerel inference: `python src/model/run_inference.py -m Qwen/Qwen2.5-7B-Instruct --output data/processed/predictions_defense.jsonl`
+
+## Dizinler
+- `src/official_stacks/defensivetoken`: first-party DefensiveToken varliklari ve setup mantigi
+- `src/official_stacks/meta_secalign`: first-party Meta_SecAlign harness ve vendor yardimcilari
+- `src/model`: model hazirlama, demo ve yerel inference girisleri
+- `src/evaluation`: ek evaluator notlari ve yerel analiz yardimcilari
+- `docs`: Colab ve benchmark notlari
+
+## Notlar
+- Final benchmark yolu artik bu repo icindeki vendorized stack'tir.
+- `openai_configs.yaml` ve `gemini_configs.yaml` dosyalari `src/official_stacks/meta_secalign/data/` altindadir.
+- Bu repo icinde build/test otomasyonu bu degisiklikte calistirilmadi.
