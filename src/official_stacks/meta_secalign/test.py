@@ -278,7 +278,7 @@ def calculate_asr_under_multiple_attacks(args, attack_successes):
         
 
 def test_vllm(args):
-    base_model_path = args.model_name_or_path.split('_')[0]
+    base_model_path = resolve_base_model_path(args.model_name_or_path)
     model, tokenizer = load_vllm_model(args.model_name_or_path, args.tensor_parallel_size)
     data = jload(args.test_data)
     if args.num_samples > 0:

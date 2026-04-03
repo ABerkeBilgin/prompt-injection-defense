@@ -1,4 +1,4 @@
-﻿# Copyright (c) Meta Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
@@ -13,7 +13,7 @@ from lm_eval.models.vllm_causallms import VLLM
 import nltk
 nltk.download('punkt_tab')
 from .paths import LM_EVAL_CONFIG_DIR, add_vendor_paths
-from .utils import jdump, summary_results, load_vllm_model_with_changed_lora_alpha
+from .utils import jdump, summary_results, load_vllm_model_with_changed_lora_alpha, resolve_base_model_path
 
 add_vendor_paths()
 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
@@ -22,8 +22,7 @@ TASKS = ['meta_gpqa_cot', 'meta_ifeval', 'meta_bbh', 'meta_mmlu_0shot_instruct',
 def main(args):
     if os.path.exists(args.model_name_or_path): log_dir = args.model_name_or_path
     else: log_dir = args.model_name_or_path + '-log'; os.makedirs(log_dir, exist_ok=True)
-
-    base_model_path = args.model_name_or_path.split('_')[0]
+    base_model_path = resolve_base_model_path(args.model_name_or_path)
     if args.model_name_or_path != base_model_path: model_name_or_path_changed_lora_alpha = load_vllm_model_with_changed_lora_alpha(args.model_name_or_path, args.lora_alpha)
     else: model_name_or_path_changed_lora_alpha = None
     lm_obj = VLLM(pretrained=base_model_path, lora_local_path=model_name_or_path_changed_lora_alpha, 

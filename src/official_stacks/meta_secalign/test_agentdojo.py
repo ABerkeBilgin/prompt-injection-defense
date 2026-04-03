@@ -15,7 +15,7 @@ from .paths import AGENTDOJO_SRC_DIR, add_vendor_paths
 
 add_vendor_paths()
 
-from .utils import load_vllm_model_with_changed_lora_alpha, summary_results, test_parser
+from .utils import load_vllm_model_with_changed_lora_alpha, model_uses_lora, resolve_base_model_path, summary_results, test_parser
 
 args = test_parser()
 if args.defense != 'repeat_user_prompt' or ('important_instructions' not in args.attack and 'none' not in args.attack):
@@ -57,9 +57,9 @@ for model_name_or_path in args.model_name_or_path:
     env = os.environ.copy()
     env['PYTHONPATH'] = str(AGENTDOJO_SRC_DIR) + os.pathsep + env.get('PYTHONPATH', '')
     if 'gpt' not in model_name_or_path and 'gemini' not in model_name_or_path:
-        base_model_path = model_name_or_path.split('_')[0]
+        base_model_path = resolve_base_model_path(model_name_or_path)
         command = 'vllm serve %s --dtype auto --host 0.0.0.0 --tensor-parallel-size %d --max-model-len 24576' % (base_model_path, args.tensor_parallel_size)
-        if '_' in model_name_or_path:
+        if model_uses_lora(model_name_or_path):
             model_name_or_path = load_vllm_model_with_changed_lora_alpha(model_name_or_path, args.lora_alpha)
             command += ' --enable-lora --max-lora-rank 64 --lora-modules %s=%s' % (model_name_or_path, model_name_or_path)
         log_dir = os.getcwd() + '/' + model_name_or_path

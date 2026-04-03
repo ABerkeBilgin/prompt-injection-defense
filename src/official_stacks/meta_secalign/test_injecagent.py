@@ -495,7 +495,7 @@ def prompting_defense_after_template(text_input, defense):
 
 def main(params, model, tokenizer):
     tool_dict = get_tool_dict()
-    base_model_path = params['model_name_or_path'].split('_')[0]
+    base_model_path = resolve_base_model_path(params['model_name_or_path'])
     apply_chat_template = None if tokenizer is None else tokenizer.apply_chat_template
     use_defensive_tokens = tokenizer_uses_defensive_tokens(tokenizer)
     log_dir = params['model_name_or_path'] if os.path.exists(params['model_name_or_path']) else params['model_name_or_path'] + '-log'

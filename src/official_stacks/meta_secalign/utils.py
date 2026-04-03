@@ -215,12 +215,29 @@ def none(d_item):
     return d_item
 
 
+def resolve_base_model_path(model_name_or_path):
+    path = Path(model_name_or_path)
+    if path.exists():
+        if (path / 'config.json').exists():
+            return model_name_or_path
+        if (path / 'adapter_config.json').exists():
+            adapter_config = jload(path / 'adapter_config.json')
+            return adapter_config.get('base_model_name_or_path', model_name_or_path.split('_')[0])
+    return model_name_or_path.split('_')[0] if '_' in model_name_or_path else model_name_or_path
+
+
+def model_uses_lora(model_name_or_path):
+    path = Path(model_name_or_path)
+    if path.exists():
+        return (path / 'adapter_config.json').exists() and not (path / 'config.json').exists()
+    return '_' in model_name_or_path
+
 def load_vllm_model(model_name_or_path, tensor_parallel_size=1):
-    base_model_path = model_name_or_path.split('_')[0]
+    base_model_path = resolve_base_model_path(model_name_or_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path)
     model = LLM(
         model=base_model_path,
-        enable_lora=base_model_path != model_name_or_path,
+        enable_lora=model_uses_lora(model_name_or_path),
         tensor_parallel_size=tensor_parallel_size,
         max_lora_rank=64,
         trust_remote_code=True,
