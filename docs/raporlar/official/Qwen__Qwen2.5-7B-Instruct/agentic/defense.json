@@ -4,7 +4,7 @@
   "suite": "agentic",
   "mode": "defense",
   "judge": "local_dev",
-  "judge_model": "gpt-4o",
+  "judge_model": "o4-mini-2025-04-16",
   "development_only": true,
   "supported_defensive_model": true,
   "commands": [
