@@ -185,7 +185,6 @@ def get_alpaca_eval_annotator_config_path(output_log_file, judge_model):
     outputs_to_match:
       1: '(?:^|\\n) ?Output \\(a\\)'
       2: '(?:^|\\n) ?Output \\(b\\)'
-    batch_size: 1
 """
     config_path.write_text(config_text, encoding='utf-8', newline='\n')
     return str(config_path)
