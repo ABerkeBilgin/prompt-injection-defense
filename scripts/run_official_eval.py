@@ -24,7 +24,6 @@ REQUIRED_DATA_FILES = {
         'SEP_dataset_test.json',
         'CySE_prompt_injections.json',
         'TaskTracker_dataset_test.json',
-        'SEP_dataset_test_Meta-Llama-3-8B-Instruct.json',
     ],
     'utility': [
         'davinci_003_outputs.json',
@@ -129,6 +128,8 @@ def build_commands(model_name_or_path: str, suite: str, judge_mode: str, judge_m
         for command in commands:
             if 'src.official_stacks.meta_secalign.test' in command or 'src.official_stacks.meta_secalign.test_injecagent' in command or 'src.official_stacks.meta_secalign.test_agentdojo' in command:
                 command.extend(['--judge_model', judge_model])
+                if command[2] == 'src.official_stacks.meta_secalign.test':
+                    command.extend(['--alpacaeval_judge_model', judge_model])
     return commands
 
 

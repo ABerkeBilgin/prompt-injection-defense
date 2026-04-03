@@ -175,6 +175,7 @@ def test_parser():
     parser.add_argument("--no_instruction_hierarchy", action='store_false', default=True, dest='instruction_hierarchy')
     parser.add_argument('--gpt5_reasoning_effort', type=str, default='high', help='Reasoning effort level for GPT-5 models: minimal/medium/high', choices=['minimal', 'medium', 'high'])
     parser.add_argument('--judge_model', type=str, default='o4-mini-2025-04-16', help='Model name used for judge/evaluator calls in official_api mode')
+    parser.add_argument('--alpacaeval_judge_model', type=str, default='o4-mini-2025-04-16', help='Model name used by AlpacaEval utility evaluation when a custom annotator config is generated')
     parser.add_argument('--promptguard_model', type=str, default='meta-llama/Llama-Prompt-Guard-2-86M', help='Prompt Guard classifier model used when promptguard defenses are enabled')
     parser.add_argument('--alpacaeval_reference_outputs', type=str, default='data/SEP_dataset_test_Meta-Llama-3-8B-Instruct.json', help='Reference outputs file used by AlpacaEval for SEP utility runs')
     parser.add_argument("--delay_hour", type=float, default=0)
@@ -546,4 +547,3 @@ def summary_results(path, row):
         if not exists:
             handle.write('\t'.join(header) + '\n')
         handle.write('\t'.join(str(row.get(column, '')) for column in header) + '\n')
-

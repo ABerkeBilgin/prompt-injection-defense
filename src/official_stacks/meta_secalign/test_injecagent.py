@@ -12,7 +12,7 @@ from nltk import ngrams
 from collections import Counter
 from transformers import pipeline
 
-from .paths import add_vendor_paths
+from .paths import DATA_DIR, add_vendor_paths
 
 add_vendor_paths()
 
@@ -30,6 +30,7 @@ from .utils import (
     test_model_output_client,
     summary_results,
     tokenizer_uses_defensive_tokens,
+    resolve_base_model_path,
 )
 
 
@@ -237,7 +238,7 @@ def transform_tool_format_gpt(tool):
 
 def get_tool_dict(gpt_format=False):
     tool_dict = {}
-    with open('data/tools.json', 'r') as f:
+    with open(DATA_DIR / 'tools.json', 'r', encoding='utf-8') as f:
         toolkits = json.load(f)
         for toolkit in toolkits:
             kit_name = toolkit['toolkit']
@@ -437,7 +438,7 @@ def evaluate_output_prompted(output, target_tool, attacker_tools, user_tool, att
 
 
 def get_simulated_attacker_tool_response(attacker_tool, attacker_tool_parameters, tool_dict):
-    file_name = 'data/attacker_simulated_responses.json'
+    file_name = str(DATA_DIR / 'attacker_simulated_responses.json')
     with open(file_name, 'r') as f:
         response_dict = json.load(f)
     history_key = f"({attacker_tool},{attacker_tool_parameters})"
@@ -503,7 +504,7 @@ def main(params, model, tokenizer):
 
     for setting in ['base', 'enhanced']:
         params['setting'] = setting
-        with open(f"data/test_cases_dh_{params['setting']}.json", 'r') as f: data = json.load(f); dh_length = len(data)
+        with open(DATA_DIR / f"test_cases_dh_{params['setting']}.json", 'r', encoding='utf-8') as f: data = json.load(f); dh_length = len(data)
         first_step_prediction_file = log_dir + '/InjecAgent' + params['setting'].upper() + 'firsttime_' + params['defense'] + '_loraalpha' + str(params['lora_alpha']) + '_IH%d' % params['instruction_hierarchy'] + '.json'
     
         if 'promptguard' in params['defense']: detection_pipeline = pipeline("text-classification", model="meta-llama/Llama-Prompt-Guard-2-86M", device="cuda")
@@ -511,7 +512,7 @@ def main(params, model, tokenizer):
         llm_input = []
         save_list_first_time = []
         for attack in ['dh', 'ds']:
-            with open(f"data/test_cases_{attack}_{params['setting']}.json", 'r') as f: data = json.load(f)
+            with open(DATA_DIR / f"test_cases_{attack}_{params['setting']}.json", 'r', encoding='utf-8') as f: data = json.load(f)
             for i, item in enumerate(data):
                 if 'promptguard' in params['defense']:
                     result = detection_pipeline(item['Tool Response'])[0]
@@ -544,7 +545,7 @@ def main(params, model, tokenizer):
 
         output_files = {}
         for j, attack in enumerate(['dh', 'ds']):
-            with open(f"data/test_cases_{attack}_{params['setting']}.json", 'r') as f: data = json.load(f)
+            with open(DATA_DIR / f"test_cases_{attack}_{params['setting']}.json", 'r', encoding='utf-8') as f: data = json.load(f)
             output_file = log_dir + '/' + f"InjecAgent{params['setting'].upper()}{attack}_{params['defense']}_loraalpha{str(params['lora_alpha'])}_IH{int(params['instruction_hierarchy'])}.json"
             output_files[attack] = output_file
             llm_input_second_step = []
