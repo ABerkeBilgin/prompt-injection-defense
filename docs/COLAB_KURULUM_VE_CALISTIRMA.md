@@ -1,13 +1,14 @@
 # Colab Kurulum ve Calistirma
 
-Bu belge artik tek repo akisini hedefler. Ayri clone veya bootstrap adimi gerekmiyor.
+Bu belge artik tek repo akisini hedefler. Ayri clone veya notebook-ici hotfix gerektirmemelidir.
 
 ## 1. Repo
 ```bash
 %cd /content
 !rm -rf prompt-injection-defense
-!git clone https://github.com/ABerkeBilgin/prompt-injection-defense.git
+!git clone -b salihv2 --single-branch https://github.com/ABerkeBilgin/prompt-injection-defense.git
 %cd /content/prompt-injection-defense
+%env PYTHONPATH=/content/prompt-injection-defense
 ```
 
 ## 2. Paketler
@@ -18,12 +19,36 @@ Bu belge artik tek repo akisini hedefler. Ayri clone veya bootstrap adimi gerekm
 !pip install -U transformers==4.57.1 accelerate sentencepiece huggingface_hub vllm
 ```
 
-## 3. API config
-OpenAI veya Gemini kullanacaksan ilgili config dosyalarini doldur:
-- `src/official_stacks/meta_secalign/data/openai_configs.yaml`
-- `src/official_stacks/meta_secalign/data/gemini_configs.yaml`
+Runtime yeniden baslatma istenirse yeniden baslat ve su iki satiri tekrar calistir:
+```bash
+%cd /content/prompt-injection-defense
+%env PYTHONPATH=/content/prompt-injection-defense
+```
 
-## 4. DefensiveToken modelini olustur
+## 3. Official data bootstrap
+Paper-aligned evaluation icin gerekli benchmark veri dosyalari repo icinde gelmez. Resmi Meta_SecAlign `setup.py` akisi ile alinmalidir.
+
+```bash
+!python scripts/bootstrap_official_data.py
+```
+
+Data klasoru doldu mu kontrol et:
+```bash
+!find src/official_stacks/meta_secalign/data -maxdepth 1 -type f | sort
+```
+
+## 4. API config
+OpenAI veya Gemini kullanacaksan ilgili config dosyalarini doldur.
+
+OpenAI ornegi:
+```bash
+%%writefile src/official_stacks/meta_secalign/data/openai_configs.yaml
+default:
+  - client_class: "openai.OpenAI"
+    api_key: "BURAYA_OPENAI_API_KEY"
+```
+
+## 5. DefensiveToken modelini olustur
 ```bash
 !python src/model/setup.py Qwen/Qwen2.5-7B-Instruct
 ```
@@ -31,53 +56,35 @@ OpenAI veya Gemini kullanacaksan ilgili config dosyalarini doldur:
 Beklenen artifact:
 - `src/official_stacks/defensivetoken/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens`
 
-Desteklenen DefensiveToken modelleri:
-- `meta-llama/Meta-Llama-3-8B-Instruct`
-- `meta-llama/Llama-3.1-8B-Instruct`
-- `tiiuae/Falcon3-7B-Instruct`
-- `Qwen/Qwen2.5-7B-Instruct`
-
-## 5. Dry-run ile komut dogrulama
+## 6. Syntax ve dry-run kontrolu
 ```bash
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge local_dev --dry-run
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge local_dev --dry-run
+!python -m py_compile \
+  src/official_stacks/meta_secalign/utils.py \
+  src/official_stacks/meta_secalign/test.py \
+  src/official_stacks/meta_secalign/test_injecagent.py \
+  src/official_stacks/meta_secalign/test_lm_eval.py \
+  src/official_stacks/meta_secalign/test_agentdojo.py \
+  scripts/run_official_eval.py \
+  scripts/bootstrap_official_data.py
 ```
 
-Sadece defensive path'i dogrulamak istersen:
 ```bash
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --defense-only --suite instruction --judge local_dev --dry-run
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --defense-only --judge local_dev --dry-run
 ```
 
-## 6. Resmi benchmark
-```bash
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode baseline --judge official_api
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api
-```
-
-Sadece defensive modeli test edip cikti almak istersen:
+## 7. Resmi benchmark
+Sadece defensive modeli test etmek icin:
 ```bash
 !python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --defense-only --suite instruction --judge official_api
 ```
 
-Judge modeli secmek istersen:
+Agentic taraf:
 ```bash
-!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --defense-only --suite instruction --judge official_api --judge-model o4-mini-2025-04-16
+!python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --defense-only --suite agentic --judge official_api
 ```
 
-Dogrudan test scripti calistirirken judge modeli secmek istersen:
-```bash
-!python -m src.official_stacks.meta_secalign.test -m o4-mini-2025-04-16 -a ignore --judge_model o4-mini-2025-04-16
-```
-
-LM eval tarafinda model artik zorunlu verilir:
-```bash
-!python -m src.official_stacks.meta_secalign.test_lm_eval -m /content/my-model-path
-```
-
-## 7. Notlar
-- Recovery sirasinda yeniden bootstrap veya ek patch uygulama adimi yok.
-- Tum orchestration artik `src/official_stacks/meta_secalign` icindeki first-party kod ile calisir.
-- Final raporlar `docs/raporlar/official/` altina yazilir.
-- Test tarafinda judge modeli secilebilir hale geldi.
-- DefensiveToken hazirlama tarafinda ise hala sadece bu repoda defensive token vektoru bulunan modeller desteklenir.
+## 8. Notlar
+- `run_official_eval.py` eksik official data dosyalarini preflight asamasinda kontrol eder.
+- Judge varsayilani `o4-mini-2025-04-16` olarak ayarlidir.
+- Judge tarafinda rate-limit riskini azaltmak icin istemci batch boyutu dusurulmustur.
 - `--defense-only` kullandiginda script sadece defensive path ile ilerler; baseline cagrisi uretmez.

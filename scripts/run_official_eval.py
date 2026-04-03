@@ -18,6 +18,28 @@ GEMINI_CONFIG_PATH = META_DATA_DIR / 'gemini_configs.yaml'
 OPEN_WEIGHT_MODELS = set(DEFENSIVE_MODELS)
 SUMMARY_FILENAME = 'summary.tsv'
 
+REQUIRED_DATA_FILES = {
+    'instruction': [
+        'davinci_003_outputs.json',
+        'SEP_dataset_test.json',
+        'CySE_prompt_injections.json',
+        'TaskTracker_dataset_test.json',
+        'SEP_dataset_test_Meta-Llama-3-8B-Instruct.json',
+    ],
+    'utility': [
+        'davinci_003_outputs.json',
+        'SEP_dataset_test.json',
+        'SEP_dataset_test_Meta-Llama-3-8B-Instruct.json',
+    ],
+    'agentic': [
+        'tools.json',
+        'attacker_simulated_responses.json',
+        'test_cases_dh_base.json',
+        'test_cases_ds_base.json',
+        'test_cases_dh_enhanced.json',
+        'test_cases_ds_enhanced.json',
+    ],
+}
 
 def normalize_model_id(model_name: str) -> str:
     return model_name.replace('/', '__')
@@ -34,6 +56,21 @@ def model_output_path(model_name: str, mode: str) -> str:
         return model_name
     return str(resolve_defended_model_path(model_name))
 
+
+def ensure_required_data_files(suite: str) -> None:
+    if suite == 'all':
+        required = set(REQUIRED_DATA_FILES['instruction'] + REQUIRED_DATA_FILES['utility'] + REQUIRED_DATA_FILES['agentic'])
+    else:
+        required = set(REQUIRED_DATA_FILES.get(suite, []))
+    missing = [name for name in sorted(required) if not (META_DATA_DIR / name).exists()]
+    if missing:
+        missing_text = ', '.join(missing)
+        raise FileNotFoundError(
+            'Missing official Meta_SecAlign data files: '
+            + missing_text
+            + '. Populate src/official_stacks/meta_secalign/data first. '
+            + 'Recommended command: python scripts/bootstrap_official_data.py'
+        )
 
 def validate_judge_mode(judge: str) -> None:
     if judge == 'local_dev':
@@ -225,6 +262,7 @@ def main() -> None:
         args.mode = 'defense'
 
     validate_judge_mode(args.judge)
+    ensure_required_data_files(args.suite)
     model_name_or_path = ensure_defensive_model(args.model, args.mode, dry_run=args.dry_run)
     commands = build_commands(model_name_or_path, args.suite, args.judge, args.judge_model)
     run_commands(commands, dry_run=args.dry_run)
