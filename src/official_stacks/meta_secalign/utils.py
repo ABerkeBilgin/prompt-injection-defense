@@ -70,10 +70,19 @@ def load_vllm_model(model_name_or_path: str):
 
 
 def load_transformers_model(model_name_or_path: str):
+    model_path = Path(model_name_or_path)
+    load_kwargs = {
+        "torch_dtype": "auto",
+        "trust_remote_code": True,
+    }
+    if model_path.exists():
+        has_sharded_safetensors = (model_path / "model.safetensors.index.json").exists()
+        has_single_safetensors = (model_path / "model.safetensors").exists()
+        if has_sharded_safetensors or has_single_safetensors:
+            load_kwargs["use_safetensors"] = True
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
-        torch_dtype="auto",
-        trust_remote_code=True,
+        **load_kwargs,
     ).eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
     if not tokenizer.pad_token:
