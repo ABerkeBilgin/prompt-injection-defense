@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import torch
 
 from .base import BaseAttack
@@ -44,7 +44,7 @@ class GCGAttack(BaseAttack):
         device = grad.device
         num_coords = min(self._param_schedule(), len(optim_ids))
         if self._not_allowed_tokens is not None:
-            grad[:, self._not_allowed_tokens.to(device)] = np.infty
+            grad[:, self._not_allowed_tokens.to(device)] = np.inf
         top_indices = (-grad).topk(self._topk, dim=1).indices
         batch_size = int(self._batch_size * 1.25)
         old_token_ids = optim_ids.repeat(batch_size, 1)
