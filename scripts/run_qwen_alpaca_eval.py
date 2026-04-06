@@ -1,23 +1,25 @@
-import argparse
+﻿import argparse
 import json
+import sys
 from pathlib import Path
 
-from src.official_stacks.defensivetoken import prepare_defended_model, resolve_defended_model_path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.official_stacks.defensivetoken import OUTPUT_SUFFIX, prepare_defended_model
 from src.official_stacks.meta_secalign.config import JUDGE_MODEL, TARGET_MODEL
 from src.official_stacks.meta_secalign.paths import DATA_DIR
-from src.official_stacks.meta_secalign.qwen_alpaca import run_qwen_alpaca_eval
 
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
 OPENAI_CONFIG_PATH = DATA_DIR / "openai_configs.yaml"
+DEFENDED_MODEL_PATH = REPO_ROOT / "src" / "official_stacks" / "defensivetoken" / f"{TARGET_MODEL}{OUTPUT_SUFFIX}"
 
 
 def resolve_model_path(mode: str, dry_run: bool) -> str:
     if mode == "baseline":
         return TARGET_MODEL
-    defended_path = resolve_defended_model_path(TARGET_MODEL)
-    if defended_path.exists() or dry_run:
-        return str(defended_path)
+    if DEFENDED_MODEL_PATH.exists() or dry_run:
+        return str(DEFENDED_MODEL_PATH)
     return str(prepare_defended_model(TARGET_MODEL))
 
 
@@ -59,6 +61,8 @@ def main() -> None:
             "openai_config_path": str(OPENAI_CONFIG_PATH),
         }, ensure_ascii=False, indent=2))
         return
+
+    from src.official_stacks.meta_secalign.qwen_alpaca import run_qwen_alpaca_eval
 
     metrics = run_qwen_alpaca_eval(args.mode, model_name_or_path, str(OPENAI_CONFIG_PATH))
     report_path = write_report(args.mode, model_name_or_path, metrics)
