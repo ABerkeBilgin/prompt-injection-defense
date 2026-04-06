@@ -123,6 +123,9 @@ Baseline raporu:
 
 ## 8. Defense Evaluation
 
+%cd /content/prompt-injection-defense
+!python scripts/run_qwen_alpaca_eval.py --mode defense --skip-gcg
+
 ```python
 %cd /content/prompt-injection-defense
 !python scripts/run_qwen_alpaca_eval.py --mode defense

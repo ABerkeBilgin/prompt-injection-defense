@@ -19,6 +19,34 @@ DEFAULT_JUDGE_MAX_RETRIES = 8
 DEFAULT_JUDGE_BACKOFF_SECONDS = 10.0
 
 
+def load_qwen_tokenizer(model_name_or_path: str):
+    tokenizer_classes = []
+    for class_name in ("Qwen2TokenizerFast", "Qwen2Tokenizer"):
+        tokenizer_class = getattr(transformers, class_name, None)
+        if tokenizer_class is not None:
+            tokenizer_classes.append(tokenizer_class)
+
+    last_error = None
+    for tokenizer_class in tokenizer_classes:
+        try:
+            return tokenizer_class.from_pretrained(model_name_or_path, trust_remote_code=True)
+        except Exception as exc:
+            last_error = exc
+
+    try:
+        return transformers.AutoTokenizer.from_pretrained(
+            model_name_or_path,
+            trust_remote_code=True,
+            use_fast=False,
+        )
+    except Exception as exc:
+        if last_error is not None:
+            raise RuntimeError(
+                f"Failed to load tokenizer for {model_name_or_path} with explicit Qwen2 and AutoTokenizer fallbacks."
+            ) from last_error
+        raise exc
+
+
 def jload(path, mode: str = "r"):
     if not isinstance(path, io.IOBase):
         path = open(path, mode=mode, encoding="utf-8")
@@ -59,7 +87,7 @@ def model_uses_lora(model_name_or_path: str) -> bool:
 
 
 def load_vllm_model(model_name_or_path: str):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+    tokenizer = load_qwen_tokenizer(model_name_or_path)
     if not tokenizer.pad_token:
         tokenizer.pad_token = tokenizer.eos_token
     model = LLM(
@@ -89,7 +117,7 @@ def load_transformers_model(model_name_or_path: str):
     if torch.cuda.is_available():
         model = model.to("cuda")
     model = model.eval()
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+    tokenizer = load_qwen_tokenizer(model_name_or_path)
     if not tokenizer.pad_token:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer
