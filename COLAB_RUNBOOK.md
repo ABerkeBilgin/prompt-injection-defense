@@ -1,37 +1,37 @@
 # Colab Runbook
 
-Bu rehber, projeyi Google Colab ortaminda sifirdan calistirmak icin hazir komut siralarini icerir.
+Bu rehber, projeyi Google Colab notebook hucrelerinde dogrudan calistirmak icin hazirlanmistir.
 
 ## Varsayimlar
 
 - Repo Colab icinde `/content/prompt-injection-defense` altina klonlanacak.
+- Klonlama `salihv2` branch'i uzerinden yapilacak.
 - Hedef model yalnizca `Qwen/Qwen2.5-7B-Instruct`.
 - Judge modeli yalnizca `gpt-4o-mini`.
 - Calistirilacak deneyler yalnizca `baseline` ve `defense`.
 
-## 1. Repo'yu Hazirla
+## 1. Repo'yu Klonla
 
-Repo henuz klonlanmadiysa:
-
-```bash
-cd /content
-git clone <REPO_URL> prompt-injection-defense
-cd /content/prompt-injection-defense
-pwd
+```python
+%cd /content
+!git clone --branch salihv2 https://github.com/ABerkeBilgin/prompt-injection-defense.git prompt-injection-defense
+%cd /content/prompt-injection-defense
+!pwd
 ```
 
-Repo zaten mevcutsa:
+Repo zaten varsa:
 
-```bash
-cd /content/prompt-injection-defense
-pwd
+```python
+%cd /content/prompt-injection-defense
+!git branch --show-current
+!pwd
 ```
 
 ## 2. Paketleri Kur
 
-```bash
-cd /content/prompt-injection-defense
-pip install -r requirements.txt
+```python
+%cd /content/prompt-injection-defense
+!pip install -r requirements.txt
 ```
 
 ## 3. OpenAI Config Dosyasini Doldur
@@ -42,16 +42,15 @@ Dosya yolu:
 
 Mevcut dosyayi gormek icin:
 
-```bash
-cd /content/prompt-injection-defense
-cat src/official_stacks/meta_secalign/data/openai_configs.yaml
+```python
+%cd /content/prompt-injection-defense
+!cat src/official_stacks/meta_secalign/data/openai_configs.yaml
 ```
 
 Gercek OpenAI anahtariniz ile guncellemek icin:
 
-```bash
-cd /content/prompt-injection-defense
-cat > src/official_stacks/meta_secalign/data/openai_configs.yaml <<'YAML'
+```python
+%%writefile /content/prompt-injection-defense/src/official_stacks/meta_secalign/data/openai_configs.yaml
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
@@ -59,14 +58,13 @@ default:
     min_interval_seconds: 1.5
     max_retries: 8
     backoff_seconds: 10.0
-YAML
 ```
 
 ## 4. Alpaca Verisini Indir
 
-```bash
-cd /content/prompt-injection-defense
-python scripts/bootstrap_qwen_alpaca_data.py
+```python
+%cd /content/prompt-injection-defense
+!python scripts/bootstrap_qwen_alpaca_data.py
 ```
 
 Olusacak dosya:
@@ -75,17 +73,17 @@ Olusacak dosya:
 
 Kontrol:
 
-```bash
-cd /content/prompt-injection-defense
-ls -lh src/official_stacks/meta_secalign/data/
+```python
+%cd /content/prompt-injection-defense
+!ls -lh src/official_stacks/meta_secalign/data/
 ```
 
 ## 5. Dry-Run ile Yol Kontrolu
 
-```bash
-cd /content/prompt-injection-defense
-python scripts/run_qwen_alpaca_eval.py --mode baseline --dry-run
-python scripts/run_qwen_alpaca_eval.py --mode defense --dry-run
+```python
+%cd /content/prompt-injection-defense
+!python scripts/run_qwen_alpaca_eval.py --mode baseline --dry-run
+!python scripts/run_qwen_alpaca_eval.py --mode defense --dry-run
 ```
 
 Beklenen noktalar:
@@ -96,9 +94,9 @@ Beklenen noktalar:
 
 ## 6. Defended Modeli Hazirla
 
-```bash
-cd /content/prompt-injection-defense
-python src/model/setup.py
+```python
+%cd /content/prompt-injection-defense
+!python src/model/setup.py
 ```
 
 Beklenen klasor:
@@ -107,16 +105,16 @@ Beklenen klasor:
 
 Kontrol:
 
-```bash
-cd /content/prompt-injection-defense
-ls -lh src/official_stacks/defensivetoken/Qwen/
+```python
+%cd /content/prompt-injection-defense
+!ls -lh src/official_stacks/defensivetoken/Qwen/
 ```
 
 ## 7. Baseline Evaluation
 
-```bash
-cd /content/prompt-injection-defense
-python scripts/run_qwen_alpaca_eval.py --mode baseline
+```python
+%cd /content/prompt-injection-defense
+!python scripts/run_qwen_alpaca_eval.py --mode baseline
 ```
 
 Baseline raporu:
@@ -125,9 +123,9 @@ Baseline raporu:
 
 ## 8. Defense Evaluation
 
-```bash
-cd /content/prompt-injection-defense
-python scripts/run_qwen_alpaca_eval.py --mode defense
+```python
+%cd /content/prompt-injection-defense
+!python scripts/run_qwen_alpaca_eval.py --mode defense
 ```
 
 Defense raporu:
@@ -138,17 +136,17 @@ Defense raporu:
 
 Tam JSON ciktilarini okumak icin:
 
-```bash
-cd /content/prompt-injection-defense
-cat docs/raporlar/qwen_alpaca/baseline.json
-cat docs/raporlar/qwen_alpaca/defense.json
+```python
+%cd /content/prompt-injection-defense
+!cat docs/raporlar/qwen_alpaca/baseline.json
+!cat docs/raporlar/qwen_alpaca/defense.json
 ```
 
 Sadece metrikleri hizlica gormek icin:
 
-```bash
-cd /content/prompt-injection-defense
-python - <<'PY'
+```python
+%cd /content/prompt-injection-defense
+!python - <<'PY'
 import json
 from pathlib import Path
 
@@ -159,15 +157,15 @@ for name in ["baseline", "defense"]:
 PY
 ```
 
-## Tek Parca Komut Blogu
+## Tek Parca Colab Blogu
 
-```bash
-cd /content
-git clone <REPO_URL> prompt-injection-defense
-cd /content/prompt-injection-defense
-pip install -r requirements.txt
+```python
+%cd /content
+!git clone --branch salihv2 <REPO_URL> prompt-injection-defense
+%cd /content/prompt-injection-defense
+!pip install -r requirements.txt
 
-cat > src/official_stacks/meta_secalign/data/openai_configs.yaml <<'YAML'
+!cat > src/official_stacks/meta_secalign/data/openai_configs.yaml <<'YAML'
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
@@ -177,10 +175,10 @@ default:
     backoff_seconds: 10.0
 YAML
 
-python scripts/bootstrap_qwen_alpaca_data.py
-python scripts/run_qwen_alpaca_eval.py --mode baseline --dry-run
-python scripts/run_qwen_alpaca_eval.py --mode defense --dry-run
-python src/model/setup.py
-python scripts/run_qwen_alpaca_eval.py --mode baseline
-python scripts/run_qwen_alpaca_eval.py --mode defense
+!python scripts/bootstrap_qwen_alpaca_data.py
+!python scripts/run_qwen_alpaca_eval.py --mode baseline --dry-run
+!python scripts/run_qwen_alpaca_eval.py --mode defense --dry-run
+!python src/model/setup.py
+!python scripts/run_qwen_alpaca_eval.py --mode baseline
+!python scripts/run_qwen_alpaca_eval.py --mode defense
 ```

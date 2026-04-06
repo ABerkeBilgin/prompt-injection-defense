@@ -93,16 +93,44 @@ def _generate_records(model_name_or_path: str, rows: list[dict]) -> list[dict]:
     return records
 
 
+def _artifact_exists(path_str: str) -> bool:
+    return Path(path_str).exists()
+
+
+def _load_stage_cache(cache_path: Path) -> dict | None:
+    if not cache_path.exists():
+        return None
+    return jload(str(cache_path))
+
+
+def _write_stage_cache(cache_path: Path, payload: dict) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    jdump(payload, str(cache_path))
+
+
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
+    cache_path = output_root / "utility_stage.json"
+    cached = _load_stage_cache(cache_path)
+    if cached and _artifact_exists(str(cached.get("artifact", ""))):
+        return float(cached["win_rate"]), Path(cached["artifact"])
+
     rows = jload(data_path)
     records = _generate_records(model_name_or_path, rows)
     output_path = output_root / "alpaca_utility_outputs.json"
     jdump(records, output_path)
     win_rate = run_rate_limited_winrate(openai_config_path, rows, [record["output"] for record in records])
+    _write_stage_cache(cache_path, {"win_rate": win_rate, "artifact": str(output_path)})
     return win_rate, output_path
 
 
 def run_asr_eval(model_name_or_path: str, data_path: str, output_root: Path):
+    cache_path = output_root / "asr_stage.json"
+    cached = _load_stage_cache(cache_path)
+    if cached:
+        artifacts = cached.get("artifacts", {})
+        if artifacts and all(_artifact_exists(str(path)) for path in artifacts.values()):
+            return float(cached["asr"]), {name: Path(path) for name, path in artifacts.items()}
+
     rows = [row for row in jload(data_path) if str(row.get("input", "")).strip()]
     metrics = {}
     artifacts = {}
@@ -117,7 +145,10 @@ def run_asr_eval(model_name_or_path: str, data_path: str, output_root: Path):
         ]
         metrics[attack_name] = sum(successes) / len(successes) if successes else 0.0
         artifacts[attack_name] = output_path
-    return max(metrics.values(), default=0.0), artifacts
+
+    asr = max(metrics.values(), default=0.0)
+    _write_stage_cache(cache_path, {"asr": asr, "artifacts": {name: str(path) for name, path in artifacts.items()}})
+    return asr, artifacts
 
 
 @dataclasses.dataclass
@@ -160,30 +191,29 @@ class QwenConversation:
 
 
 def _build_gcg_config(log_dir: Path):
-    class Config:
-        name = "gcg"
-        seed = 0
-        log_freq = 20
-        adv_suffix_init = "! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !"
-        init_suffix_len = -1
-        num_steps = 500
-        fixed_params = True
-        allow_non_ascii = False
-        batch_size = 512
-        mini_batch_size = 64
-        seq_len = 50
-        loss_temperature = 1.0
-        max_queries = -1
-        skip_mode = "none"
-        add_space = False
-        topk = 256
-        num_coords = (1, 1)
-        mu = 0.0
-        custom_name = ""
-        log_dir = str(log_dir)
-        sample_id = -1
-
-    return Config()
+    config = type("Config", (), {})()
+    config.name = "gcg"
+    config.seed = 0
+    config.log_freq = 20
+    config.adv_suffix_init = "! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !"
+    config.init_suffix_len = -1
+    config.num_steps = 500
+    config.fixed_params = True
+    config.allow_non_ascii = False
+    config.batch_size = 512
+    config.mini_batch_size = 64
+    config.seq_len = 50
+    config.loss_temperature = 1.0
+    config.max_queries = -1
+    config.skip_mode = "none"
+    config.add_space = False
+    config.topk = 256
+    config.num_coords = (1, 1)
+    config.mu = 0.0
+    config.custom_name = ""
+    config.log_dir = str(log_dir)
+    config.sample_id = -1
+    return config
 
 
 def _run_gcg_eval_fn(model, tokenizer, prompt: str):
@@ -202,6 +232,11 @@ def _run_gcg_eval_fn(model, tokenizer, prompt: str):
 
 
 def run_gcg_eval(model_name_or_path: str, data_path: str, output_root: Path):
+    cache_path = output_root / "gcg_stage.json"
+    cached = _load_stage_cache(cache_path)
+    if cached and _artifact_exists(str(cached.get("artifact", ""))):
+        return float(cached["gcg_asr"]), Path(cached["artifact"])
+
     setup_logger(verbose=True)
     model, tokenizer = load_transformers_model(model_name_or_path)
     defensive_prefix = defensive_token_prefix(tokenizer) if tokenizer_uses_defensive_tokens(tokenizer) else ""
@@ -248,7 +283,10 @@ def run_gcg_eval(model_name_or_path: str, data_path: str, output_root: Path):
         valid_logs += 1
     if valid_logs == 0:
         raise RuntimeError("GCG logs were created but no valid samples were found.")
-    return begin_with / valid_logs, log_dir
+
+    gcg_asr = begin_with / valid_logs
+    _write_stage_cache(cache_path, {"gcg_asr": gcg_asr, "artifact": str(log_dir)})
+    return gcg_asr, log_dir
 
 
 def run_qwen_alpaca_eval(mode: str, model_name_or_path: str, openai_config_path: str) -> dict:
@@ -256,9 +294,9 @@ def run_qwen_alpaca_eval(mode: str, model_name_or_path: str, openai_config_path:
     output_root = get_output_root(model_name_or_path)
     output_root.mkdir(parents=True, exist_ok=True)
 
+    gcg_asr, gcg_artifact = run_gcg_eval(model_name_or_path, data_path, output_root)
     win_rate, utility_artifact = run_utility_eval(model_name_or_path, data_path, output_root, openai_config_path)
     asr, asr_artifacts = run_asr_eval(model_name_or_path, data_path, output_root)
-    gcg_asr, gcg_artifact = run_gcg_eval(model_name_or_path, data_path, output_root)
 
     write_summary(
         output_root / "summary.tsv",

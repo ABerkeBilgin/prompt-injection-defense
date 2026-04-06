@@ -4,8 +4,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .utils import batchify_kv_cache, get_prefix_cache
-
 
 @dataclasses.dataclass
 class LossOutput:
@@ -34,21 +32,14 @@ class TransformersModel:
         self.embed_layer = self.model.get_input_embeddings()
         self.embed_weights = self.embed_layer.weight.t().detach()
         self.embed_layer.requires_grad_(False)
-        self._batch_prefix_cache = {}
-        self.prefix_cache = None
         self.num_fixed_tokens = 0
         self.model.eval()
 
-    def _get_batch_prefix_cache(self, batch_size: int):
-        if self.prefix_cache is None:
-            raise RuntimeError("Prefix cache has not been set.")
-        if batch_size not in self._batch_prefix_cache:
-            self._batch_prefix_cache[batch_size] = batchify_kv_cache(self.prefix_cache, batch_size)
-        return self._batch_prefix_cache[batch_size]
-
     def set_prefix_cache(self, messages):
-        self.prefix_cache, self.num_fixed_tokens = get_prefix_cache(self.suffix_manager, self.model, self.tokenizer, messages)
-        self._batch_prefix_cache = {}
+        _ = messages
+        # Disable prefix-cache usage for compatibility with current
+        # transformers/Qwen cache APIs used in Colab.
+        self.num_fixed_tokens = 0
 
     def filter_suffixes(self, suffix_ids=None, suffix=None, skipped_suffixes=None):
         _ = suffix
@@ -100,7 +91,7 @@ class TransformersModel:
     def _compute_loss(self, batch_input_ids, batch_targets, loss_slice, num_samples=None, temperature=1.0):
         num_samples = num_samples or len(batch_input_ids)
         input_embeds = self.embed_layer(batch_input_ids)
-        logits = self.model(inputs_embeds=input_embeds, past_key_values=self._get_batch_prefix_cache(len(batch_input_ids)), use_cache=True).logits[:num_samples]
+        logits = self.model(inputs_embeds=input_embeds, use_cache=False).logits[:num_samples]
         logits = logits / temperature
         loss_logits = logits[:, loss_slice]
         loss = F.cross_entropy(loss_logits.permute(0, 2, 1), batch_targets, reduction="none").mean(dim=1)
@@ -116,7 +107,7 @@ class TransformersModel:
         input_embeds = self.embed_layer(input_ids).unsqueeze(0)
         input_embeds.requires_grad_(True)
         with torch.enable_grad():
-            logits = self.model(inputs_embeds=input_embeds, past_key_values=self._get_batch_prefix_cache(len(input_embeds)), use_cache=True).logits
+            logits = self.model(inputs_embeds=input_embeds, use_cache=False).logits
             loss_logits = logits[:, eval_input.loss_slice].squeeze(0)
             loss = F.cross_entropy(loss_logits / temperature, target_ids)
             embed_grads = torch.autograd.grad(outputs=[loss], inputs=[input_embeds])[0]
