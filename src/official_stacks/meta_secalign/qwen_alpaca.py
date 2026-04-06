@@ -1,4 +1,4 @@
-import copy
+﻿import copy
 import dataclasses
 from pathlib import Path
 
@@ -200,8 +200,8 @@ def _build_gcg_config(log_dir: Path):
     config.num_steps = 500
     config.fixed_params = True
     config.allow_non_ascii = False
-    config.batch_size = 512
-    config.mini_batch_size = 64
+    config.batch_size = 32
+    config.mini_batch_size = 4
     config.seq_len = 50
     config.loss_temperature = 1.0
     config.max_queries = -1
@@ -217,9 +217,12 @@ def _build_gcg_config(log_dir: Path):
 
 
 def _run_gcg_eval_fn(model, tokenizer, prompt: str):
-    input_ids = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
+    encoded = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+    input_ids = encoded.input_ids.to(model.device)
+    attention_mask = encoded.attention_mask.to(model.device)
     output = model.generate(
         input_ids,
+        attention_mask=attention_mask,
         max_new_tokens=64,
         do_sample=False,
         temperature=0.0,
@@ -260,7 +263,12 @@ def run_gcg_eval(model_name_or_path: str, data_path: str, output_root: Path):
     )
 
     rows = [row for row in jload(data_path) if str(row.get("input", "")).strip()]
+    attack_name = str(attack).replace(f"{attack.name}_", "")
+    log_dir = output_root / attack.name / attack_name
     for sample_id, row in enumerate(rows):
+        sample_log = log_dir / f"{sample_id}.jsonl"
+        if sample_log.exists() and '"loss":' in sample_log.read_text(encoding="utf-8"):
+            continue
         cfg = _build_gcg_config(output_root)
         cfg.sample_id = sample_id
         attack._setup_log_file(cfg)
@@ -289,33 +297,41 @@ def run_gcg_eval(model_name_or_path: str, data_path: str, output_root: Path):
     return gcg_asr, log_dir
 
 
-def run_qwen_alpaca_eval(mode: str, model_name_or_path: str, openai_config_path: str) -> dict:
+def run_qwen_alpaca_eval(mode: str, model_name_or_path: str, openai_config_path: str, include_gcg: bool = True) -> dict:
     data_path = str(ensure_alpaca_data_file())
     output_root = get_output_root(model_name_or_path)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    gcg_asr, gcg_artifact = run_gcg_eval(model_name_or_path, data_path, output_root)
+    gcg_asr = None
+    gcg_artifact = None
+    if include_gcg:
+        gcg_asr, gcg_artifact = run_gcg_eval(model_name_or_path, data_path, output_root)
     win_rate, utility_artifact = run_utility_eval(model_name_or_path, data_path, output_root, openai_config_path)
     asr, asr_artifacts = run_asr_eval(model_name_or_path, data_path, output_root)
 
-    write_summary(
-        output_root / "summary.tsv",
-        [
-            ("win_rate", win_rate, str(utility_artifact)),
-            ("asr", asr, str(asr_artifacts["completion_ignore"])),
-            ("gcg_asr", gcg_asr, str(gcg_artifact)),
-        ],
-    )
-    return {
+    summary_rows = [
+        ("win_rate", win_rate, str(utility_artifact)),
+        ("asr", asr, str(asr_artifacts["completion_ignore"])),
+    ]
+    if include_gcg and gcg_asr is not None and gcg_artifact is not None:
+        summary_rows.append(("gcg_asr", gcg_asr, str(gcg_artifact)))
+    write_summary(output_root / "summary.tsv", summary_rows)
+
+    artifacts = {
+        "summary_tsv": str(output_root / "summary.tsv"),
+        "utility_outputs": str(utility_artifact),
+        "asr_outputs": {name: str(path) for name, path in asr_artifacts.items()},
+    }
+    if include_gcg and gcg_artifact is not None:
+        artifacts["gcg_log_dir"] = str(gcg_artifact)
+
+    payload = {
         "mode": mode,
         "judge_model": JUDGE_MODEL,
         "win_rate": win_rate,
         "asr": asr,
-        "gcg_asr": gcg_asr,
-        "artifacts": {
-            "summary_tsv": str(output_root / "summary.tsv"),
-            "utility_outputs": str(utility_artifact),
-            "asr_outputs": {name: str(path) for name, path in asr_artifacts.items()},
-            "gcg_log_dir": str(gcg_artifact),
-        },
+        "artifacts": artifacts,
     }
+    if include_gcg and gcg_asr is not None:
+        payload["gcg_asr"] = gcg_asr
+    return payload

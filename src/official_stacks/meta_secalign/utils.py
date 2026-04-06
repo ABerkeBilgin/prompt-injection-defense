@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import openai
+import torch
 import transformers
 import yaml
 from vllm import LLM, SamplingParams
@@ -74,6 +75,7 @@ def load_transformers_model(model_name_or_path: str):
     load_kwargs = {
         "torch_dtype": "auto",
         "trust_remote_code": True,
+        "low_cpu_mem_usage": True,
     }
     if model_path.exists():
         has_sharded_safetensors = (model_path / "model.safetensors.index.json").exists()
@@ -83,7 +85,10 @@ def load_transformers_model(model_name_or_path: str):
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         **load_kwargs,
-    ).eval()
+    )
+    if torch.cuda.is_available():
+        model = model.to("cuda")
+    model = model.eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
     if not tokenizer.pad_token:
         tokenizer.pad_token = tokenizer.eos_token

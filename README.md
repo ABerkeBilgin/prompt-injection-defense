@@ -1,4 +1,4 @@
-# Prompt Injection Defense
+﻿# Prompt Injection Defense
 
 Bu repo artik tek amacli bir Qwen degerlendirme hattidir.
 
@@ -15,6 +15,7 @@ Bu repo artik tek amacli bir Qwen degerlendirme hattidir.
 ## Calistirma
 - Baseline: `python scripts/run_qwen_alpaca_eval.py --mode baseline`
 - Defense: `python scripts/run_qwen_alpaca_eval.py --mode defense`
+- Hizli ara kosu (GCG olmadan): `python scripts/run_qwen_alpaca_eval.py --mode defense --skip-gcg`
 
 ## Cikti
 - Raporlar: `docs/raporlar/qwen_alpaca/`

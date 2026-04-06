@@ -26,16 +26,18 @@ def resolve_model_path(mode: str, dry_run: bool) -> str:
 def write_report(mode: str, model_name_or_path: str, metrics: dict) -> Path:
     report_path = REPO_ROOT / "docs" / "raporlar" / "qwen_alpaca" / f"{mode}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
+    metric_payload = {
+        "win_rate": metrics["win_rate"],
+        "asr": metrics["asr"],
+    }
+    if "gcg_asr" in metrics:
+        metric_payload["gcg_asr"] = metrics["gcg_asr"]
     payload = {
         "model": TARGET_MODEL,
         "resolved_model_path": model_name_or_path,
         "mode": mode,
         "judge_model": JUDGE_MODEL,
-        "metrics": {
-            "win_rate": metrics["win_rate"],
-            "asr": metrics["asr"],
-            "gcg_asr": metrics["gcg_asr"],
-        },
+        "metrics": metric_payload,
         "artifacts": metrics["artifacts"],
     }
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -46,6 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["baseline", "defense"], required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--skip-gcg", action="store_true")
     args = parser.parse_args()
 
     if not OPENAI_CONFIG_PATH.exists():
@@ -64,7 +67,7 @@ def main() -> None:
 
     from src.official_stacks.meta_secalign.qwen_alpaca import run_qwen_alpaca_eval
 
-    metrics = run_qwen_alpaca_eval(args.mode, model_name_or_path, str(OPENAI_CONFIG_PATH))
+    metrics = run_qwen_alpaca_eval(args.mode, model_name_or_path, str(OPENAI_CONFIG_PATH), include_gcg=not args.skip_gcg)
     report_path = write_report(args.mode, model_name_or_path, metrics)
     print(json.dumps({"report": str(report_path), "metrics": metrics}, ensure_ascii=False, indent=2))
 
