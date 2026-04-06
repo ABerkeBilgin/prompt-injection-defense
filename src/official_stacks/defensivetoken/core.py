@@ -8,16 +8,8 @@ import transformers
 OUTPUT_SUFFIX = "-5DefensiveTokens"
 STACK_ROOT = Path(__file__).resolve().parent
 ASSET_PATH = STACK_ROOT / "defensivetokens.json"
-SUPPORTED_MODELS = [
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-    "meta-llama/Llama-3.1-8B-Instruct",
-    "tiiuae/Falcon3-7B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct",
-]
+SUPPORTED_MODELS = ["Qwen/Qwen2.5-7B-Instruct"]
 CHAT_TEMPLATES = {
-    "meta-llama/Meta-Llama-3-8B-Instruct": """{%- if add_defensive_tokens %}\n{{- '[DefensiveToken0][DefensiveToken1][DefensiveToken2][DefensiveToken3][DefensiveToken4]' }}\n{%- endif %}\n{{- bos_token }}\n{%- for message in messages %}\n{{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n' + message['content'] | trim + '\\n\\n' + '<|eot_id|>' }}\n{%- endfor %}\n{%- if add_generation_prompt %}\n{{- '<|start_header_id|>assistant<|end_header_id|>\\n' }}\n{%- endif %}\n""",
-    "meta-llama/Llama-3.1-8B-Instruct": """{%- if add_defensive_tokens %}\n{{- '[DefensiveToken0][DefensiveToken1][DefensiveToken2][DefensiveToken3][DefensiveToken4]' }}\n{%- endif %}\n{{- bos_token }}\n{%- for message in messages %}\n{{- '<|start_header_id|>' + message['role'] + '<|end_header_id|>\\n' + message['content'] | trim + '\\n\\n' + '<|eot_id|>' }}\n{%- endfor %}\n{%- if add_generation_prompt %}\n{{- '<|start_header_id|>assistant<|end_header_id|>\\n' }}\n{%- endif %}\n""",
-    "tiiuae/Falcon3-7B-Instruct": """{%- if add_defensive_tokens %}\n{{- '[DefensiveToken0][DefensiveToken1][DefensiveToken2][DefensiveToken3][DefensiveToken4]' }}\n{%- endif %}\n{%- for message in messages %}\n{{- '<|' + message['role'] + '|>\\n' + message['content'] | trim + '\\n\\n' }}\n{%- endfor %}\n{%- if add_generation_prompt %}\n{{- '<|assistant|>\\n' }}\n{%- endif %}\n""",
     "Qwen/Qwen2.5-7B-Instruct": """{%- if add_defensive_tokens %}\n{{- '[DefensiveToken0][DefensiveToken1][DefensiveToken2][DefensiveToken3][DefensiveToken4]' }}\n{%- endif %}\n{%- for message in messages %}\n{{- '<|im_start|>' + message['role'] + '\\n' + message['content'] | trim + '\\n\\n<|im_end|>\\n' }}\n{%- endfor %}\n{%- if add_generation_prompt %}\n{{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n""",
 }
 
@@ -33,7 +25,7 @@ def resolve_defended_model_path(model_name: str, output_root: Path | None = None
 
 
 def prepare_defended_model(model_name: str, output_root: Path | None = None) -> Path:
-    if model_name not in SUPPORTED_MODELS:
+    if model_name != SUPPORTED_MODELS[0]:
         raise ValueError(f"Unsupported model for DefensiveToken preparation: {model_name}")
 
     defensive_tokens = load_defensive_tokens()

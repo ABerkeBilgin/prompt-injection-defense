@@ -1,11 +1,9 @@
-# Pipeline (veri hazirlama + metrik hesaplama) - sadece stdlib gerektirir
-# Model calistiracaksan PyTorch paketlerini uyumlu set halinde kur.
-
-# Model inference (src/model/setup.py ve demo.py)
 transformers==4.57.1
 torch==2.10.0
 torchvision==0.25.0
 torchaudio==2.10.0
-
-# Metrik / degerlendirme (istege bagli, ek analiz icin)
+vllm
+openai
+PyYAML
+alpaca-eval
 numpy

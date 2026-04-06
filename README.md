@@ -1,20 +1,23 @@
 # Prompt Injection Defense
 
-Bu repo artik `DefensiveToken` ve `Meta_SecAlign` akisini dogrudan kendi icinde barindirir. Dis repo clone, patch-script ve ayri bagimlilik akisi kaldirilmistir.
+Bu repo artik tek amacli bir Qwen degerlendirme hattidir.
 
-## Ana akis
-- Savunmali model hazirlama: `python src/model/setup.py Qwen/Qwen2.5-7B-Instruct`
-- Resmi benchmark orkestrasyonu: `python scripts/run_official_eval.py --model Qwen/Qwen2.5-7B-Instruct --suite instruction --mode defense --judge official_api`
-- Yerel inference: `python src/model/run_inference.py -m Qwen/Qwen2.5-7B-Instruct --output data/processed/predictions_defense.jsonl`
+- Hedef model: `Qwen/Qwen2.5-7B-Instruct`
+- Deney modlari: `baseline`, `defense`
+- Paper-facing metrikler: `WinRate`, `ASR`, `GCG-ASR`
+- Judge modeli: `gpt-4o-mini`
 
-## Dizinler
-- `src/official_stacks/defensivetoken`: first-party DefensiveToken varliklari ve setup mantigi
-- `src/official_stacks/meta_secalign`: first-party Meta_SecAlign harness ve vendor yardimcilari
-- `src/model`: model hazirlama, demo ve yerel inference girisleri
-- `src/evaluation`: ek evaluator notlari ve yerel analiz yardimcilari
-- `docs`: Colab ve benchmark notlari
+## Kurulum
+- AlpacaFarm veri dosyasini indir: `python scripts/bootstrap_qwen_alpaca_data.py`
+- OpenAI config ornegini duzenle: `src/official_stacks/meta_secalign/data/openai_configs.yaml`
+- Defended model hazirla: `python src/model/setup.py`
 
-## Notlar
-- Final benchmark yolu artik bu repo icindeki vendorized stack'tir.
-- `openai_configs.yaml` ve `gemini_configs.yaml` dosyalari `src/official_stacks/meta_secalign/data/` altindadir.
-- Bu repo icinde build/test otomasyonu bu degisiklikte calistirilmadi.
+## Calistirma
+- Baseline: `python scripts/run_qwen_alpaca_eval.py --mode baseline`
+- Defense: `python scripts/run_qwen_alpaca_eval.py --mode defense`
+
+## Cikti
+- Raporlar: `docs/raporlar/qwen_alpaca/`
+- Ham artifactler: hedef model klasoru veya `-log` klasoru altinda
+
+Repo yalnizca bu Qwen + AlpacaFarm + GCG degerlendirme yolunu tasir.
