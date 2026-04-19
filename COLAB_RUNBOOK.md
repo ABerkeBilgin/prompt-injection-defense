@@ -54,7 +54,7 @@ Gercek OpenAI anahtariniz ile guncellemek icin:
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
-    model: "gpt-4o"
+    model: "gpt-4o-mini"
     min_interval_seconds: 1.5
     max_retries: 8
     backoff_seconds: 10.0
@@ -176,7 +176,7 @@ PY
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
-    model: "gpt-4o"
+    model: "gpt-4o-mini"
     min_interval_seconds: 1.5
     max_retries: 8
     backoff_seconds: 10.0
