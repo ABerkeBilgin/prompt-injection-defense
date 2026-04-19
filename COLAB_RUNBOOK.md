@@ -7,7 +7,7 @@ Bu rehber, projeyi Google Colab notebook hucrelerinde dogrudan calistirmak icin 
 - Repo Colab icinde `/content/prompt-injection-defense` altina klonlanacak.
 - Klonlama `salihv2` branch'i uzerinden yapilacak.
 - Hedef model yalnizca `Qwen/Qwen2.5-7B-Instruct`.
-- Judge modeli yalnizca `gpt-4o-mini`.
+- Judge modeli yalnizca `gpt-4o`.
 - Calistirilacak deneyler yalnizca `baseline` ve `defense`.
 
 ## 1. Repo'yu Klonla
@@ -54,7 +54,7 @@ Gercek OpenAI anahtariniz ile guncellemek icin:
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
-    model: "gpt-4o-mini"
+    model: "gpt-4o"
     min_interval_seconds: 1.5
     max_retries: 8
     backoff_seconds: 10.0
@@ -89,7 +89,7 @@ Kontrol:
 Beklenen noktalar:
 
 - `model` degeri `Qwen/Qwen2.5-7B-Instruct`
-- `judge_model` degeri `gpt-4o-mini`
+- `judge_model` degeri `gpt-4o`
 - `openai_config_path` dogru dosyayi gostermeli
 
 ## 6. Defended Modeli Hazirla
@@ -176,7 +176,7 @@ PY
 default:
   - client_class: "openai.OpenAI"
     api_key: "YOUR_OPENAI_API_KEY"
-    model: "gpt-4o-mini"
+    model: "gpt-4o"
     min_interval_seconds: 1.5
     max_retries: 8
     backoff_seconds: 10.0
@@ -186,6 +186,6 @@ YAML
 !python scripts/run_qwen_alpaca_eval.py --mode baseline --dry-run
 !python scripts/run_qwen_alpaca_eval.py --mode defense --dry-run
 !python src/model/setup.py
-!python scripts/run_qwen_alpaca_eval.py --mode baseline
-!python scripts/run_qwen_alpaca_eval.py --mode defense
+!python scripts/run_qwen_alpaca_eval.py --mode baseline --skip-gcg
+!python scripts/run_qwen_alpaca_eval.py --mode defense --skip-gcg
 ```

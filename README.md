@@ -5,7 +5,7 @@ Bu repo artik tek amacli bir Qwen degerlendirme hattidir.
 - Hedef model: `Qwen/Qwen2.5-7B-Instruct`
 - Deney modlari: `baseline`, `defense`
 - Paper-facing metrikler: `WinRate`, `ASR`, `GCG-ASR`
-- Judge modeli: `gpt-4o-mini`
+- Judge modeli: `gpt-4o`
 
 ## Kurulum
 - AlpacaFarm veri dosyasini indir: `python scripts/bootstrap_qwen_alpaca_data.py`

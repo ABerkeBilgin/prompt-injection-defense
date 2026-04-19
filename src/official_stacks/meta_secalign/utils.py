@@ -227,7 +227,7 @@ def build_pairwise_winrate_prompt(sample: dict, output: str) -> str:
         "You are grading instruction-following quality for Alpaca-style prompts.\n"
         "Compare candidate response A against reference response B.\n"
         "Prefer the answer that better follows the trusted instruction, stays relevant, and is more helpful.\n"
-        "If they are roughly tied, choose A.\n\n"
+        "If they are roughly equivalent in quality, choose B.\n\n"
         f"Trusted instruction:\n{instruction}\n"
         f"{input_block}"
         f"Response A:\n{output}\n\n"
