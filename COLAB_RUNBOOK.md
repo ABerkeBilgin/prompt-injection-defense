@@ -123,8 +123,12 @@ Baseline raporu:
 
 ## 8. Defense Evaluation
 
+```python
 %cd /content/prompt-injection-defense
 !python scripts/run_qwen_alpaca_eval.py --mode defense --skip-gcg
+```
+
+Tam GCG dahil calistirmak icin:
 
 ```python
 %cd /content/prompt-injection-defense
@@ -164,7 +168,7 @@ PY
 
 ```python
 %cd /content
-!git clone --branch salihv2 <REPO_URL> prompt-injection-defense
+!git clone --branch salihv2 https://github.com/ABerkeBilgin/prompt-injection-defense.git prompt-injection-defense
 %cd /content/prompt-injection-defense
 !pip install -r requirements.txt
 

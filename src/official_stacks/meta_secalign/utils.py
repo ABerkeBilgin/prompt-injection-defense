@@ -212,7 +212,7 @@ def _judge_chat_completion(client, request_model: str, prompt: str, min_interval
             is_retryable = isinstance(exc, (openai.RateLimitError, openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError))
             if not is_retryable or attempt >= max_retries:
                 raise
-            sleep_seconds = backoff_seconds * (2 ** attempt) + random.uniform(0.0, 1.0)
+            sleep_seconds = min(backoff_seconds * (2 ** attempt), 120.0) + random.uniform(0.0, 1.0)
             time.sleep(sleep_seconds)
             state["last_request_at"] = time.monotonic()
     raise RuntimeError("Judge request retry loop exited unexpectedly.")
