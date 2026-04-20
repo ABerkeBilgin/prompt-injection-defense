@@ -137,16 +137,24 @@ def _load_reference_outputs_df():
     import pandas as pd
     from huggingface_hub import list_repo_files, hf_hub_download
 
-    files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset"))
+    # HuggingFace otomatik olarak tum datasetleri refs/convert/parquet branch'inde Parquet'e donusturur.
+    # Bu, loading script sorununu bypass eder.
+    parquet_revision = "refs/convert/parquet"
+    files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset", revision=parquet_revision))
     parquet_files = [f for f in files if f.endswith(".parquet") and "gpt4_turbo" in f]
     if not parquet_files:
         parquet_files = [f for f in files if f.endswith(".parquet")]
     if not parquet_files:
-        raise RuntimeError("tatsu-lab/alpaca_eval reposunda parquet dosyasi bulunamadi.")
+        raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde parquet dosyasi bulunamadi.")
 
     frames = []
     for filename in parquet_files:
-        path = hf_hub_download(repo_id="tatsu-lab/alpaca_eval", filename=filename, repo_type="dataset")
+        path = hf_hub_download(
+            repo_id="tatsu-lab/alpaca_eval",
+            filename=filename,
+            repo_type="dataset",
+            revision=parquet_revision,
+        )
         frames.append(pd.read_parquet(path))
     return pd.concat(frames, ignore_index=True)
 
