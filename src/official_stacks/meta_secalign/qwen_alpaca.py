@@ -112,13 +112,13 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
 _PAIRWISE_TEMPLATE = """\
 I need to evaluate two AI assistant responses to a user instruction.
 
-User instruction: {{instruction}}
+User instruction: {instruction}
 
 Response A:
-{{output_1}}
+{output_1}
 
 Response B:
-{{output_2}}
+{output_2}
 
 Which response better follows the user instruction? Output ONLY the single letter 'm' if Response A is better, or 'M' if Response B is better.
 """
@@ -128,13 +128,14 @@ def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> N
     import yaml as _yaml
 
     config_dir.mkdir(parents=True, exist_ok=True)
-    (config_dir / "template.txt").write_text(_PAIRWISE_TEMPLATE, encoding="utf-8")
+    template_path = (config_dir / "template.txt").resolve()
+    template_path.write_text(_PAIRWISE_TEMPLATE, encoding="utf-8")
 
     config = {
         "custom": {
-            "prompt_template": "template.txt",
+            "prompt_template": str(template_path),
             "fn_completions": "openai_completions",
-            "completions_kwargs": {"model": judge_model, "max_tokens": 5, "temperature": 0},
+            "completions_kwargs": {"model_name": judge_model, "max_tokens": 5, "temperature": 0},
             "is_randomize_output_order": True,
         }
     }
@@ -196,12 +197,13 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
 
     annotator_dir = (output_root / "alpaca_annotator_cfg").resolve()
     _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
+    annotator_config_path = annotator_dir / "configs.yaml"
 
     model_key = model_name_or_path.split("/")[-1]
     df_leaderboard, _ = _ae.evaluate(
         model_outputs=model_outputs,
         reference_outputs=reference_outputs,
-        annotators_config=str(annotator_dir),
+        annotators_config=str(annotator_config_path),
         name=model_key,
         is_return_instead_of_print=True,
         output_path=None,
