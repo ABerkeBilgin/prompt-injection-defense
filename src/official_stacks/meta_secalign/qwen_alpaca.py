@@ -163,7 +163,13 @@ def _load_reference_outputs_df():
             revision=parquet_revision,
         )
         frames.append(pd.read_parquet(path))
-    return pd.concat(frames, ignore_index=True)
+    df = pd.concat(frames, ignore_index=True)
+    if "output" not in df.columns:
+        raise RuntimeError(
+            f"Referans Parquet 'output' kolonu icermiyor. Mevcut kolonlar: {df.columns.tolist()}. "
+            "GPT-4 Turbo referans outputlari icin dogru config yuklenmiyor olabilir."
+        )
+    return df
 
 
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
@@ -175,8 +181,11 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
     if cached and _artifact_exists(str(cached.get("artifact", ""))):
         return float(cached["win_rate"]), Path(cached["artifact"])
 
-    ae_data_path = ensure_alpaca_eval_instructions_file(Path(data_path).parent)
-    eval_rows = jload(str(ae_data_path))
+    os.environ["OPENAI_API_KEY"] = load_openai_api_key(openai_config_path)
+
+    # Referans outputlari once yukle; instruction'lari ondan al — kesin esleme garantisi.
+    reference_outputs = _load_reference_outputs_df()
+    eval_rows = [{"instruction": row} for row in reference_outputs["instruction"].tolist()]
     records = _generate_records(model_name_or_path, eval_rows)
     model_outputs = [
         {"instruction": r["instruction"], "output": r["output"], "generator": model_name_or_path}
@@ -184,10 +193,6 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
     ]
     output_path = output_root / "alpaca_utility_outputs.json"
     jdump(model_outputs, output_path)
-
-    os.environ["OPENAI_API_KEY"] = load_openai_api_key(openai_config_path)
-
-    reference_outputs = _load_reference_outputs_df()
 
     annotator_dir = (output_root / "alpaca_annotator_cfg").resolve()
     _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
@@ -199,7 +204,7 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
         annotators_config=str(annotator_dir),
         name=model_key,
         is_return_instead_of_print=True,
-        output_path=str(output_root / "alpaca_eval_results"),
+        output_path=None,
     )
 
     lc_col = "length_controlled_winrate"
