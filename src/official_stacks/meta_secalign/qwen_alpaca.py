@@ -147,17 +147,33 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
 
 
 def _load_reference_outputs_df():
-    import alpaca_eval.constants as _ae_constants
-    import alpaca_eval.utils as _ae_utils
+    import json
+    import pandas as pd
+    from huggingface_hub import hf_hub_download
 
-    # alpaca_eval paketinin ALPACAEVAL_REFERENCE_OUTPUTS sabiti GPT-4 Turbo
-    # referans ciktilarini gosteriyor — weighted_alpaca_eval_gpt4_turbo ile ayni kaynak.
-    df = _ae_utils.load_or_convert_to_dataframe(_ae_constants.ALPACAEVAL_REFERENCE_OUTPUTS)
-    if "output" not in df.columns:
-        raise RuntimeError(
-            f"Referans DataFrame 'output' kolonu icermiyor. Mevcut kolonlar: {df.columns.tolist()}."
-        )
-    return df
+    # GPT-4 Turbo referans ciktilarini direkt JSON olarak indir (datasets API'sini bypass eder).
+    for filename in [
+        "alpaca_eval_gpt4_turbo.json",
+        "data/alpaca_eval_gpt4_turbo.json",
+        "alpaca_eval_gpt4_turbo/alpaca_eval_gpt4_turbo.json",
+    ]:
+        try:
+            path = hf_hub_download(
+                repo_id="tatsu-lab/alpaca_eval",
+                filename=filename,
+                repo_type="dataset",
+            )
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            df = pd.DataFrame(data)
+            if "output" in df.columns:
+                return df
+        except Exception:
+            continue
+
+    raise RuntimeError(
+        "tatsu-lab/alpaca_eval GPT-4 Turbo referans JSON dosyasi indirilemedi. "
+        "alpaca_eval_gpt4_turbo.json HuggingFace repo'sunda bulunamadi."
+    )
 
 
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
