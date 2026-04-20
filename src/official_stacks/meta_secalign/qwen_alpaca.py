@@ -133,6 +133,24 @@ def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> N
         _yaml.dump(config, fh)
 
 
+def _load_reference_outputs_df():
+    import pandas as pd
+    from huggingface_hub import list_repo_files, hf_hub_download
+
+    files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset"))
+    parquet_files = [f for f in files if f.endswith(".parquet") and "gpt4_turbo" in f]
+    if not parquet_files:
+        parquet_files = [f for f in files if f.endswith(".parquet")]
+    if not parquet_files:
+        raise RuntimeError("tatsu-lab/alpaca_eval reposunda parquet dosyasi bulunamadi.")
+
+    frames = []
+    for filename in parquet_files:
+        path = hf_hub_download(repo_id="tatsu-lab/alpaca_eval", filename=filename, repo_type="dataset")
+        frames.append(pd.read_parquet(path))
+    return pd.concat(frames, ignore_index=True)
+
+
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
     import os
     import alpaca_eval as _ae
@@ -154,12 +172,15 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
 
     os.environ["OPENAI_API_KEY"] = load_openai_api_key(openai_config_path)
 
+    reference_outputs = _load_reference_outputs_df()
+
     annotator_dir = output_root / "alpaca_annotator_cfg"
     _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
 
     model_key = model_name_or_path.split("/")[-1]
     df_leaderboard, _ = _ae.evaluate(
         model_outputs=model_outputs,
+        reference_outputs=reference_outputs,
         annotators_config=str(annotator_dir),
         name=model_key,
         is_return_instead_of_print=True,
