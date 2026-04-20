@@ -147,28 +147,40 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
 
 
 def _load_reference_outputs_df():
+    import json
     import logging
     import pandas as pd
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import hf_hub_download, list_repo_files
 
-    # alpaca_eval/eval/0000.parquet — AlpacaEval2 default config (805 ornek).
-    # Bu dataset GPT-4 Turbo referans ciktilarini iceriyor (gpt-4-1106-preview).
-    path = hf_hub_download(
-        repo_id="tatsu-lab/alpaca_eval",
-        filename="alpaca_eval/eval/0000.parquet",
-        repo_type="dataset",
-        revision="refs/convert/parquet",
+    log = logging.getLogger(__name__)
+
+    # Ana branch'teki dosyalari tara, GPT-4 Turbo JSON'unu bul
+    all_files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset"))
+    log.info(f"tatsu-lab/alpaca_eval main branch dosyalari: {all_files}")
+
+    candidates = [f for f in all_files if "gpt4" in f.lower() and f.endswith(".json")]
+    log.info(f"GPT-4 JSON adaylari: {candidates}")
+
+    for filename in candidates:
+        try:
+            path = hf_hub_download(
+                repo_id="tatsu-lab/alpaca_eval",
+                filename=filename,
+                repo_type="dataset",
+            )
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            if isinstance(data, list) and len(data) >= 100:
+                df = pd.DataFrame(data)
+                if "output" in df.columns and "instruction" in df.columns:
+                    log.info(f"GPT-4 Turbo referans yuklendi: {filename} ({len(df)} ornek)")
+                    return df
+        except Exception as exc:
+            log.warning(f"{filename} indirilemedi: {exc}")
+
+    raise RuntimeError(
+        f"GPT-4 Turbo referans JSON bulunamadi. "
+        f"Taranan dosyalar: {candidates}. Tum dosyalar: {all_files}"
     )
-    df = pd.read_parquet(path)
-    if "generator" in df.columns:
-        logging.getLogger(__name__).info(
-            f"Referans generator: {df['generator'].dropna().unique().tolist()}"
-        )
-    if "output" not in df.columns:
-        raise RuntimeError(
-            f"Referans Parquet 'output' kolonu icermiyor. Kolonlar: {df.columns.tolist()}"
-        )
-    return df
 
 
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
