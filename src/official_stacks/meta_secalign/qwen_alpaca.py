@@ -7,14 +7,15 @@ from .paths import add_vendor_paths
 from .utils import (
     defensive_token_prefix,
     ensure_alpaca_data_file,
+    ensure_alpaca_eval_instructions_file,
     generate_outputs,
     get_output_root,
     jdump,
     jload,
+    load_openai_api_key,
     load_transformers_model,
     load_vllm_model,
     render_qwen_prompt,
-    run_rate_limited_winrate,
     tokenizer_uses_defensive_tokens,
     write_summary,
 )
@@ -108,17 +109,68 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
     jdump(payload, str(cache_path))
 
 
+def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> None:
+    import shutil
+    import alpaca_eval as _ae
+    import yaml as _yaml
+
+    pkg_dir = Path(_ae.__file__).parent
+    src_template = pkg_dir / "evaluators_configs" / "alpaca_eval_gpt4_turbo_fn" / "template.txt"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    if src_template.exists():
+        shutil.copy(src_template, config_dir / "template.txt")
+
+    config = {
+        "custom": {
+            "prompt_template": "template.txt",
+            "fn_completions": "openai_fn_completions",
+            "completions_kwargs": {"model": judge_model, "max_tokens": 1024, "temperature": 0},
+            "is_randomize_output_order": True,
+            "p_label_flip": 0.0,
+        }
+    }
+    with open(config_dir / "configs.yaml", "w", encoding="utf-8") as fh:
+        _yaml.dump(config, fh)
+
+
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
+    import os
+    import alpaca_eval as _ae
+
     cache_path = output_root / "utility_stage.json"
     cached = _load_stage_cache(cache_path)
     if cached and _artifact_exists(str(cached.get("artifact", ""))):
         return float(cached["win_rate"]), Path(cached["artifact"])
 
-    rows = [row for row in jload(data_path) if str(row.get("input", "")).strip()]
-    records = _generate_records(model_name_or_path, rows)
+    ae_data_path = ensure_alpaca_eval_instructions_file(Path(data_path).parent)
+    eval_rows = jload(str(ae_data_path))
+    records = _generate_records(model_name_or_path, eval_rows)
+    model_outputs = [
+        {"instruction": r["instruction"], "output": r["output"], "generator": model_name_or_path}
+        for r in records
+    ]
     output_path = output_root / "alpaca_utility_outputs.json"
-    jdump(records, output_path)
-    win_rate = run_rate_limited_winrate(openai_config_path, rows, [record["output"] for record in records])
+    jdump(model_outputs, output_path)
+
+    os.environ["OPENAI_API_KEY"] = load_openai_api_key(openai_config_path)
+
+    annotator_dir = output_root / "alpaca_annotator_cfg"
+    _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
+
+    model_key = model_name_or_path.split("/")[-1]
+    df_leaderboard, _ = _ae.evaluate(
+        model_outputs=model_outputs,
+        annotators_config=str(annotator_dir),
+        name=model_key,
+        is_return_instead_of_print=True,
+        output_path=str(output_root / "alpaca_eval_results"),
+    )
+
+    lc_col = "length_controlled_winrate"
+    raw_col = "win_rate"
+    col = lc_col if lc_col in df_leaderboard.columns else raw_col
+    win_rate = float(df_leaderboard.loc[model_key, col]) / 100
+
     _write_stage_cache(cache_path, {"win_rate": win_rate, "artifact": str(output_path)})
     return win_rate, output_path
 

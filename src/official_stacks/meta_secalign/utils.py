@@ -264,3 +264,17 @@ def ensure_alpaca_data_file(data_path: str | None = None) -> Path:
             "Populate src/official_stacks/meta_secalign/data/davinci_003_outputs.json first."
         )
     return resolved
+
+
+def ensure_alpaca_eval_instructions_file(data_dir: Path | None = None) -> Path:
+    resolved = (data_dir or DATA_DIR) / "alpaca_eval_instructions.json"
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"Missing AlpacaEval2 instructions file: {resolved}. "
+            "Run scripts/bootstrap_qwen_alpaca_data.py first."
+        )
+    return resolved
+
+
+def load_openai_api_key(openai_config_path: str) -> str:
+    return str(_load_openai_config(openai_config_path).get("api_key", ""))

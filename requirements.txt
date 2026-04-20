@@ -6,3 +6,4 @@ vllm
 openai
 PyYAML
 numpy
+alpaca_eval
