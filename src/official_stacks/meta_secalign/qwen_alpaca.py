@@ -147,39 +147,15 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
 
 
 def _load_reference_outputs_df():
-    import pandas as pd
-    from huggingface_hub import list_repo_files, hf_hub_download
+    import alpaca_eval.constants as _ae_constants
+    import alpaca_eval.utils as _ae_utils
 
-    parquet_revision = "refs/convert/parquet"
-    files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset", revision=parquet_revision))
-    all_parquet = [f for f in files if f.endswith(".parquet")]
-
-    # GPT-4 Turbo referans ciktilari icin oncelik sirasi
-    for prefix in ("alpaca_eval_gpt4_turbo/", "alpaca_eval_gpt4/", "gpt4_turbo/"):
-        parquet_files = sorted(f for f in all_parquet if f.startswith(prefix))
-        if parquet_files:
-            break
-
-    if not parquet_files:
-        raise RuntimeError(
-            f"tatsu-lab/alpaca_eval refs/convert/parquet branch'inde GPT-4 Turbo referans parquet bulunamadi. "
-            f"Mevcut parquet dosyalari: {all_parquet}"
-        )
-
-    frames = []
-    for filename in parquet_files:
-        path = hf_hub_download(
-            repo_id="tatsu-lab/alpaca_eval",
-            filename=filename,
-            repo_type="dataset",
-            revision=parquet_revision,
-        )
-        frames.append(pd.read_parquet(path))
-    df = pd.concat(frames, ignore_index=True)
+    # alpaca_eval paketinin ALPACAEVAL_REFERENCE_OUTPUTS sabiti GPT-4 Turbo
+    # referans ciktilarini gosteriyor — weighted_alpaca_eval_gpt4_turbo ile ayni kaynak.
+    df = _ae_utils.load_or_convert_to_dataframe(_ae_constants.ALPACAEVAL_REFERENCE_OUTPUTS)
     if "output" not in df.columns:
         raise RuntimeError(
-            f"Referans Parquet 'output' kolonu icermiyor. Mevcut kolonlar: {df.columns.tolist()}. "
-            "GPT-4 Turbo referans outputlari icin dogru config yuklenmiyor olabilir."
+            f"Referans DataFrame 'output' kolonu icermiyor. Mevcut kolonlar: {df.columns.tolist()}."
         )
     return df
 
