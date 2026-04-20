@@ -156,7 +156,7 @@ def _load_reference_outputs_df():
     # "alpaca_eval/eval/" prefix'i 805 instruction + GPT-4 Turbo output iceriyor.
     parquet_files = sorted(f for f in files if f.startswith("alpaca_eval_gpt4_turbo/") and f.endswith(".parquet"))
     if not parquet_files:
-        raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde alpaca_eval/eval/*.parquet bulunamadi.")
+        raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde alpaca_eval_gpt4_turbo/eval/*.parquet bulunamadi.")
 
     frames = []
     for filename in parquet_files:
