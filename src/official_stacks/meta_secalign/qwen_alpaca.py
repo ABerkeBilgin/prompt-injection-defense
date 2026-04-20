@@ -114,7 +114,7 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
     if cached and _artifact_exists(str(cached.get("artifact", ""))):
         return float(cached["win_rate"]), Path(cached["artifact"])
 
-    rows = jload(data_path)
+    rows = [row for row in jload(data_path) if str(row.get("input", "")).strip()]
     records = _generate_records(model_name_or_path, rows)
     output_path = output_root / "alpaca_utility_outputs.json"
     jdump(records, output_path)
