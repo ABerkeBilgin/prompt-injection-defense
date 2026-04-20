@@ -137,15 +137,13 @@ def _load_reference_outputs_df():
     import pandas as pd
     from huggingface_hub import list_repo_files, hf_hub_download
 
-    # HuggingFace otomatik olarak tum datasetleri refs/convert/parquet branch'inde Parquet'e donusturur.
-    # Bu, loading script sorununu bypass eder.
     parquet_revision = "refs/convert/parquet"
     files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset", revision=parquet_revision))
-    parquet_files = [f for f in files if f.endswith(".parquet") and "gpt4_turbo" in f]
+    # Sadece temel alpaca_eval split'i lazim (GPT-4 Turbo referans outputlari).
+    # "alpaca_eval/eval/" prefix'i 805 instruction + GPT-4 Turbo output iceriyor.
+    parquet_files = sorted(f for f in files if f.startswith("alpaca_eval/") and f.endswith(".parquet"))
     if not parquet_files:
-        parquet_files = [f for f in files if f.endswith(".parquet")]
-    if not parquet_files:
-        raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde parquet dosyasi bulunamadi.")
+        raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde alpaca_eval/eval/*.parquet bulunamadi.")
 
     frames = []
     for filename in parquet_files:
@@ -182,7 +180,7 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
 
     reference_outputs = _load_reference_outputs_df()
 
-    annotator_dir = output_root / "alpaca_annotator_cfg"
+    annotator_dir = (output_root / "alpaca_annotator_cfg").resolve()
     _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
 
     model_key = model_name_or_path.split("/")[-1]
