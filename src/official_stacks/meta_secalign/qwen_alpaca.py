@@ -147,32 +147,51 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
 
 
 def _load_reference_outputs_df():
-    import json
     import pandas as pd
     from huggingface_hub import hf_hub_download
 
-    # GPT-4 Turbo referans ciktilarini direkt JSON olarak indir (datasets API'sini bypass eder).
-    for filename in [
-        "alpaca_eval_gpt4_turbo.json",
-        "data/alpaca_eval_gpt4_turbo.json",
-        "alpaca_eval_gpt4_turbo/alpaca_eval_gpt4_turbo.json",
-    ]:
-        try:
-            path = hf_hub_download(
-                repo_id="tatsu-lab/alpaca_eval",
-                filename=filename,
-                repo_type="dataset",
+    parquet_revision = "refs/convert/parquet"
+
+    # 1. alpaca_eval_all_outputs icinden GPT-4 Turbo satirlarini filtrele
+    try:
+        path = hf_hub_download(
+            repo_id="tatsu-lab/alpaca_eval",
+            filename="alpaca_eval_all_outputs/eval/0000.parquet",
+            repo_type="dataset",
+            revision=parquet_revision,
+        )
+        df_all = pd.read_parquet(path)
+        if "generator" in df_all.columns:
+            gpt4_turbo_keywords = ("gpt-4-turbo", "gpt4_turbo", "gpt-4-0125", "gpt-4-1106")
+            mask = df_all["generator"].str.lower().str.contains(
+                "|".join(gpt4_turbo_keywords), na=False
             )
-            data = json.loads(Path(path).read_text(encoding="utf-8"))
-            df = pd.DataFrame(data)
-            if "output" in df.columns:
-                return df
-        except Exception:
-            continue
+            df_filtered = df_all[mask].reset_index(drop=True)
+            if len(df_filtered) >= 100 and "output" in df_filtered.columns:
+                return df_filtered
+    except Exception:
+        pass
+
+    # 2. alpaca_eval paketi icindeki evaluators_configs'de bundled veri ara
+    try:
+        import alpaca_eval as _ae_pkg
+        pkg_dir = Path(_ae_pkg.__file__).parent
+        for candidate in [
+            pkg_dir / "evaluators_configs" / "alpaca_eval_gpt4_turbo" / "alpaca_eval_gpt4_turbo.json",
+            pkg_dir / "evaluators_configs" / "weighted_alpaca_eval_gpt4_turbo" / "alpaca_eval_gpt4_turbo.json",
+        ]:
+            if candidate.exists():
+                import json
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+                df = pd.DataFrame(data)
+                if "output" in df.columns and len(df) >= 100:
+                    return df
+    except Exception:
+        pass
 
     raise RuntimeError(
-        "tatsu-lab/alpaca_eval GPT-4 Turbo referans JSON dosyasi indirilemedi. "
-        "alpaca_eval_gpt4_turbo.json HuggingFace repo'sunda bulunamadi."
+        "GPT-4 Turbo referans ciktilari yuklenemedi. "
+        "alpaca_eval_all_outputs parquet ve paket ici bundled dosyalar denendi, ikisi de basarisiz."
     )
 
 
