@@ -7,7 +7,6 @@ from .paths import add_vendor_paths
 from .utils import (
     defensive_token_prefix,
     ensure_alpaca_data_file,
-    ensure_alpaca_eval_instructions_file,
     generate_outputs,
     get_output_root,
     jdump,
@@ -110,10 +109,6 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
 
 
 _PAIRWISE_TEMPLATE = """\
-<|im_start|>system
-You are a strict evaluator. Reply with only one character: m or M.
-<|im_end|>
-<|im_start|>user
 I need to evaluate two AI assistant responses to a user instruction.
 
 User instruction: {instruction}
@@ -125,7 +120,6 @@ Response B:
 {output_2}
 
 Which response better follows the user instruction? Output ONLY the single letter 'm' if Response A is better, or 'M' if Response B is better.
-<|im_end|>
 """
 
 
