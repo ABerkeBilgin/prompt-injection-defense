@@ -108,31 +108,21 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
     jdump(payload, str(cache_path))
 
 
-def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> None:
+def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Path:
     import shutil
     import alpaca_eval as _ae_pkg
     import yaml as _yaml
 
-    # Resmi weighted_alpaca_eval_gpt4_turbo config dizinini bul
-    official_dir = (
-        Path(_ae_pkg.__file__).parent
-        / "evaluators_configs"
-        / "weighted_alpaca_eval_gpt4_turbo"
-    )
-    if not official_dir.exists():
-        raise RuntimeError(
-            f"Resmi alpaca_eval annotator config bulunamadi: {official_dir}"
-        )
+    # weighted_alpaca_eval_gpt4_turbo sibling config'lere (alpaca_eval_clf_gpt4_turbo vb.)
+    # referans verdigi icin tum evaluators_configs dizinini kopyalayip model_name override ediyoruz.
+    official_evaluators_dir = Path(_ae_pkg.__file__).parent / "evaluators_configs"
+    if not official_evaluators_dir.exists():
+        raise RuntimeError(f"alpaca_eval evaluators_configs bulunamadi: {official_evaluators_dir}")
 
-    # Config dizinini kopyala (template.txt dahil)
-    if config_dir.exists():
-        shutil.rmtree(config_dir)
-    shutil.copytree(official_dir, config_dir)
-
-    # configs.yaml icindeki model_name'i override et
-    config_yaml_path = config_dir / "configs.yaml"
-    with open(config_yaml_path, "r", encoding="utf-8") as fh:
-        config = _yaml.safe_load(fh)
+    dest_evaluators_dir = work_dir / "alpaca_evaluators_configs"
+    if dest_evaluators_dir.exists():
+        shutil.rmtree(dest_evaluators_dir)
+    shutil.copytree(official_evaluators_dir, dest_evaluators_dir)
 
     def _override_model(node):
         if isinstance(node, dict):
@@ -144,10 +134,16 @@ def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> N
             for item in node:
                 _override_model(item)
 
-    _override_model(config)
+    for yaml_path in dest_evaluators_dir.rglob("configs.yaml"):
+        with open(yaml_path, "r", encoding="utf-8") as fh:
+            cfg = _yaml.safe_load(fh)
+        if cfg is None:
+            continue
+        _override_model(cfg)
+        with open(yaml_path, "w", encoding="utf-8") as fh:
+            _yaml.dump(cfg, fh, allow_unicode=True)
 
-    with open(config_yaml_path, "w", encoding="utf-8") as fh:
-        _yaml.dump(config, fh, allow_unicode=True)
+    return dest_evaluators_dir / "weighted_alpaca_eval_gpt4_turbo" / "configs.yaml"
 
 
 def _load_reference_outputs_df():
@@ -202,9 +198,7 @@ def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path,
     output_path = output_root / "alpaca_utility_outputs.json"
     jdump(model_outputs, output_path)
 
-    annotator_dir = (output_root / "alpaca_annotator_cfg").resolve()
-    _write_alpaca_eval_annotator_config(JUDGE_MODEL, annotator_dir)
-    annotator_config_path = annotator_dir / "configs.yaml"
+    annotator_config_path = _build_alpaca_eval_annotator_config(JUDGE_MODEL, output_root)
 
     model_key = model_name_or_path.split("/")[-1]
     df_leaderboard, _ = _ae.evaluate(
