@@ -147,57 +147,28 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
 
 
 def _load_reference_outputs_df():
-    import json
-    import ssl
-    import urllib.request
+    import logging
     import pandas as pd
     from huggingface_hub import hf_hub_download
 
-    # 1. Direkt HuggingFace URL ile JSON indir (datasets API'sini bypass eder)
-    for url in [
-        "https://huggingface.co/datasets/tatsu-lab/alpaca_eval/resolve/main/alpaca_eval_gpt4_turbo.json",
-        "https://huggingface.co/datasets/tatsu-lab/alpaca_eval/resolve/main/data/alpaca_eval_gpt4_turbo.json",
-    ]:
-        try:
-            ctx = ssl.create_default_context()
-            with urllib.request.urlopen(url, context=ctx) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            df = pd.DataFrame(data)
-            if "output" in df.columns and len(df) >= 100:
-                return df
-        except Exception:
-            continue
-
-    # 2. alpaca_eval_all_outputs parquet — mevcut generator isimlerini goster
-    parquet_revision = "refs/convert/parquet"
-    try:
-        path = hf_hub_download(
-            repo_id="tatsu-lab/alpaca_eval",
-            filename="alpaca_eval_all_outputs/eval/0000.parquet",
-            repo_type="dataset",
-            revision=parquet_revision,
+    # alpaca_eval/eval/0000.parquet — AlpacaEval2 default config (805 ornek).
+    # Bu dataset GPT-4 Turbo referans ciktilarini iceriyor (gpt-4-1106-preview).
+    path = hf_hub_download(
+        repo_id="tatsu-lab/alpaca_eval",
+        filename="alpaca_eval/eval/0000.parquet",
+        repo_type="dataset",
+        revision="refs/convert/parquet",
+    )
+    df = pd.read_parquet(path)
+    if "generator" in df.columns:
+        logging.getLogger(__name__).info(
+            f"Referans generator: {df['generator'].dropna().unique().tolist()}"
         )
-        df_all = pd.read_parquet(path)
-        if "generator" in df_all.columns:
-            unique_generators = df_all["generator"].dropna().unique().tolist()
-            import logging
-            logging.getLogger(__name__).info(f"all_outputs generator listesi: {unique_generators}")
-            gpt4_turbo_keywords = ("gpt-4-turbo", "gpt4_turbo", "gpt-4-0125", "gpt-4-1106", "gpt4turbo")
-            mask = df_all["generator"].str.lower().str.contains(
-                "|".join(gpt4_turbo_keywords), na=False
-            )
-            df_filtered = df_all[mask].reset_index(drop=True)
-            if len(df_filtered) >= 100 and "output" in df_filtered.columns:
-                return df_filtered
-            raise RuntimeError(
-                f"all_outputs'ta GPT-4 Turbo bulunamadi. Mevcut generatorlar: {unique_generators}"
-            )
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        raise RuntimeError(f"all_outputs parquet yuklenemedi: {exc}") from exc
-
-    raise RuntimeError("GPT-4 Turbo referans ciktilari yuklenemedi.")
+    if "output" not in df.columns:
+        raise RuntimeError(
+            f"Referans Parquet 'output' kolonu icermiyor. Kolonlar: {df.columns.tolist()}"
+        )
+    return df
 
 
 def run_utility_eval(model_name_or_path: str, data_path: str, output_root: Path, openai_config_path: str):
