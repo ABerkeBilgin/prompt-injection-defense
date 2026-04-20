@@ -140,6 +140,8 @@ def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> N
             "prompt_template": str(template_path),
             "fn_completions": "openai_completions",
             "completions_kwargs": {"model_name": judge_model, "max_tokens": 5, "temperature": 0},
+            "fn_completion_parser": "regex_parser",
+            "completion_parser_kwargs": {"outputs_to_match": {"1": "^\\s*m\\s*$", "2": "^\\s*M\\s*$"}},
             "is_randomize_output_order": True,
         }
     }

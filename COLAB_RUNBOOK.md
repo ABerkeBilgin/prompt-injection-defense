@@ -114,7 +114,7 @@ Kontrol:
 
 ```python
 %cd /content/prompt-injection-defense
-!python scripts/run_qwen_alpaca_eval.py --mode baseline
+!python scripts/run_qwen_alpaca_eval.py --mode baseline --skip-gcg
 ```
 
 Baseline raporu:
