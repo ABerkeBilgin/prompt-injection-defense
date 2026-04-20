@@ -154,7 +154,7 @@ def _load_reference_outputs_df():
     files = list(list_repo_files("tatsu-lab/alpaca_eval", repo_type="dataset", revision=parquet_revision))
     # Sadece temel alpaca_eval split'i lazim (GPT-4 Turbo referans outputlari).
     # "alpaca_eval/eval/" prefix'i 805 instruction + GPT-4 Turbo output iceriyor.
-    parquet_files = sorted(f for f in files if f.startswith("alpaca_eval/") and f.endswith(".parquet"))
+    parquet_files = sorted(f for f in files if f.startswith("alpaca_eval_gpt4_turbo/") and f.endswith(".parquet"))
     if not parquet_files:
         raise RuntimeError("tatsu-lab/alpaca_eval refs/convert/parquet branch'inde alpaca_eval/eval/*.parquet bulunamadi.")
 
