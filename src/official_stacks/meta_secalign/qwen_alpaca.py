@@ -108,45 +108,46 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
     jdump(payload, str(cache_path))
 
 
-_PAIRWISE_TEMPLATE = """\
-<|im_start|>system
-You are a strict evaluator. Reply with only one character: m or M.
-<|im_end|>
-<|im_start|>user
-I need to evaluate two AI assistant responses to a user instruction.
-
-User instruction: {instruction}
-
-Response A:
-{output_1}
-
-Response B:
-{output_2}
-
-Which response better follows the user instruction? Output ONLY the single letter 'm' if Response A is better, or 'M' if Response B is better.
-<|im_end|>
-"""
-
-
 def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> None:
+    import shutil
+    import alpaca_eval as _ae_pkg
     import yaml as _yaml
 
-    config_dir.mkdir(parents=True, exist_ok=True)
-    template_path = (config_dir / "template.txt").resolve()
-    template_path.write_text(_PAIRWISE_TEMPLATE, encoding="utf-8")
+    # Resmi weighted_alpaca_eval_gpt4_turbo config dizinini bul
+    official_dir = (
+        Path(_ae_pkg.__file__).parent
+        / "evaluators_configs"
+        / "weighted_alpaca_eval_gpt4_turbo"
+    )
+    if not official_dir.exists():
+        raise RuntimeError(
+            f"Resmi alpaca_eval annotator config bulunamadi: {official_dir}"
+        )
 
-    config = {
-        "custom": {
-            "prompt_template": str(template_path),
-            "fn_completions": "openai_completions",
-            "completions_kwargs": {"model_name": judge_model, "max_tokens": 5, "temperature": 0},
-            "fn_completion_parser": "regex_parser",
-            "completion_parser_kwargs": {"outputs_to_match": {1: "^\\s*m\\s*$", 2: "^\\s*M\\s*$"}},
-            "is_randomize_output_order": True,
-        }
-    }
-    with open(config_dir / "configs.yaml", "w", encoding="utf-8") as fh:
-        _yaml.dump(config, fh)
+    # Config dizinini kopyala (template.txt dahil)
+    if config_dir.exists():
+        shutil.rmtree(config_dir)
+    shutil.copytree(official_dir, config_dir)
+
+    # configs.yaml icindeki model_name'i override et
+    config_yaml_path = config_dir / "configs.yaml"
+    with open(config_yaml_path, "r", encoding="utf-8") as fh:
+        config = _yaml.safe_load(fh)
+
+    def _override_model(node):
+        if isinstance(node, dict):
+            if "model_name" in node:
+                node["model_name"] = judge_model
+            for v in node.values():
+                _override_model(v)
+        elif isinstance(node, list):
+            for item in node:
+                _override_model(item)
+
+    _override_model(config)
+
+    with open(config_yaml_path, "w", encoding="utf-8") as fh:
+        _yaml.dump(config, fh, allow_unicode=True)
 
 
 def _load_reference_outputs_df():
