@@ -109,22 +109,32 @@ def _write_stage_cache(cache_path: Path, payload: dict) -> None:
     jdump(payload, str(cache_path))
 
 
+_PAIRWISE_TEMPLATE = """\
+I need to evaluate two AI assistant responses to a user instruction.
+
+User instruction: {{instruction}}
+
+Response A:
+{{output_1}}
+
+Response B:
+{{output_2}}
+
+Which response better follows the user instruction? Output ONLY the single letter 'm' if Response A is better, or 'M' if Response B is better.
+"""
+
+
 def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> None:
-    import shutil
-    import alpaca_eval as _ae
     import yaml as _yaml
 
-    pkg_dir = Path(_ae.__file__).parent
-    src_template = pkg_dir / "evaluators_configs" / "alpaca_eval_gpt4_turbo_fn" / "template.txt"
     config_dir.mkdir(parents=True, exist_ok=True)
-    if src_template.exists():
-        shutil.copy(src_template, config_dir / "template.txt")
+    (config_dir / "template.txt").write_text(_PAIRWISE_TEMPLATE, encoding="utf-8")
 
     config = {
         "custom": {
             "prompt_template": "template.txt",
-            "fn_completions": "openai_fn_completions",
-            "completions_kwargs": {"model": judge_model, "max_tokens": 1024, "temperature": 0},
+            "fn_completions": "openai_completions",
+            "completions_kwargs": {"model": judge_model, "max_tokens": 5, "temperature": 0},
             "is_randomize_output_order": True,
         }
     }
