@@ -126,7 +126,6 @@ def _write_alpaca_eval_annotator_config(judge_model: str, config_dir: Path) -> N
             "fn_completions": "openai_fn_completions",
             "completions_kwargs": {"model": judge_model, "max_tokens": 1024, "temperature": 0},
             "is_randomize_output_order": True,
-            "p_label_flip": 0.0,
         }
     }
     with open(config_dir / "configs.yaml", "w", encoding="utf-8") as fh:
