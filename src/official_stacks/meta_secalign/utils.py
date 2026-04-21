@@ -171,7 +171,7 @@ def resolve_judge_request_model(openai_config_path: str) -> str:
 
 def get_output_root(model_name_or_path: str) -> Path:
     path = Path(model_name_or_path)
-    return path if path.exists() else Path(f"{model_name_or_path}-log")
+    return path if path.exists() else Path(f"{model_name_or_path}-log").resolve()
 
 
 def write_summary(summary_path: Path, rows: list[tuple[str, float, str]]) -> None:
