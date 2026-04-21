@@ -128,6 +128,13 @@ def _build_alpaca_eval_annotator_config(judge_model: str, work_dir: Path) -> Pat
         if isinstance(node, dict):
             if "model_name" in node:
                 node["model_name"] = judge_model
+            # TPM rate limit korumasi: paralel worker ve batch boyutunu kisit
+            if "fn_completions" in node or "completions_kwargs" in node:
+                if "completions_kwargs" not in node:
+                    node["completions_kwargs"] = {}
+                node["completions_kwargs"]["num_procs"] = 1
+                node["completions_kwargs"]["batch_size"] = 4
+                node["completions_kwargs"]["sleep_time"] = 2
             for v in node.values():
                 _override_model(v)
         elif isinstance(node, list):
