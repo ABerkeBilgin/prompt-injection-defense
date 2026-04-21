@@ -6,7 +6,9 @@
       "Bash(where python:*)",
       "Bash(where python3:*)",
       "Bash(py --version)",
-      "Bash(/c/Users/salih/AppData/Local/Microsoft/WindowsApps/python.exe src/data/build_dataset.py --output data/processed/eval_set.jsonl)"
+      "Bash(/c/Users/salih/AppData/Local/Microsoft/WindowsApps/python.exe src/data/build_dataset.py --output data/processed/eval_set.jsonl)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
