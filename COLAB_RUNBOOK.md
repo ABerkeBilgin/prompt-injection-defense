@@ -340,15 +340,13 @@ UtilityToken'lari defended model uzerine uygular, yeni model dizinini olusturur.
 
 ```python
 %cd /content/prompt-injection-defense
-!python - <<'PY'
 import sys
-sys.path.insert(0, ".")
+sys.path.insert(0, "/content/prompt-injection-defense")
 from src.official_stacks.utilitytokens.core import prepare_utility_model
 
-defended_path = "src/official_stacks/defensivetoken/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens"
+defended_path = "/content/prompt-injection-defense/src/official_stacks/defensivetoken/Qwen/Qwen2.5-7B-Instruct-5DefensiveTokens"
 out = prepare_utility_model(defended_path)
 print(f"Utility model hazir: {out}")
-PY
 ```
 
 Olusacak klasor:
@@ -398,7 +396,6 @@ Rapor: `docs/raporlar/qwen_alpaca/utility.json`
 
 ```python
 %cd /content/prompt-injection-defense
-!python - <<'PY'
 import json
 from pathlib import Path
 
@@ -412,7 +409,6 @@ for name in ["baseline", "defense", "utility"]:
     data = json.loads(path.read_text(encoding="utf-8"))
     m = data["metrics"]
     print(f"{name:<10} {m['win_rate']:>10.4f} {m['asr']:>8.4f}")
-PY
 ```
 
 Beklenen sonuc:
