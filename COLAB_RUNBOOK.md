@@ -206,7 +206,7 @@ embed_layer = model.get_input_embeddings()
 seed_words  = ["helpful","certainly","sure","assist","gladly","absolutely","happy","pleasure"]
 with torch.no_grad():
     seed_ids   = [tid for w in seed_words for tid in tokenizer.encode(w, add_special_tokens=False)]
-    seed_embeds = embed_layer.weight[list(set(seed_ids))].float().mean(dim=0)
+    seed_embeds = embed_layer.weight[list(set(seed_ids))].float().mean(dim=0).cpu()
 
 utility_embeddings = nn.Parameter(
     seed_embeds.unsqueeze(0).repeat(N_UTILITY, 1) + 0.01 * torch.randn(N_UTILITY, seed_embeds.shape[0])
