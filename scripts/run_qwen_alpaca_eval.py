@@ -7,20 +7,29 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.official_stacks.defensivetoken import OUTPUT_SUFFIX, prepare_defended_model
+from src.official_stacks.defensivetoken import OUTPUT_SUFFIX as DEFENSIVE_SUFFIX, prepare_defended_model
+from src.official_stacks.utilitytokens.core import OUTPUT_SUFFIX as UTILITY_SUFFIX, prepare_utility_model
 from src.official_stacks.meta_secalign.config import JUDGE_MODEL, TARGET_MODEL
 from src.official_stacks.meta_secalign.paths import DATA_DIR
 
 OPENAI_CONFIG_PATH = DATA_DIR / "openai_configs.yaml"
-DEFENDED_MODEL_PATH = REPO_ROOT / "src" / "official_stacks" / "defensivetoken" / f"{TARGET_MODEL}{OUTPUT_SUFFIX}"
+DEFENDED_MODEL_PATH = REPO_ROOT / "src" / "official_stacks" / "defensivetoken" / f"{TARGET_MODEL}{DEFENSIVE_SUFFIX}"
+UTILITY_MODEL_PATH  = DEFENDED_MODEL_PATH.parent / f"{TARGET_MODEL}{DEFENSIVE_SUFFIX}{UTILITY_SUFFIX}"
 
 
 def resolve_model_path(mode: str, dry_run: bool) -> str:
     if mode == "baseline":
         return TARGET_MODEL
-    if DEFENDED_MODEL_PATH.exists() or dry_run:
-        return str(DEFENDED_MODEL_PATH)
-    return str(prepare_defended_model(TARGET_MODEL))
+    if mode == "defense":
+        if DEFENDED_MODEL_PATH.exists() or dry_run:
+            return str(DEFENDED_MODEL_PATH)
+        return str(prepare_defended_model(TARGET_MODEL))
+    # mode == "utility"
+    if UTILITY_MODEL_PATH.exists() or dry_run:
+        return str(UTILITY_MODEL_PATH)
+    # Önce defense modelinin hazır olduğundan emin ol
+    defended_path = DEFENDED_MODEL_PATH if DEFENDED_MODEL_PATH.exists() else Path(prepare_defended_model(TARGET_MODEL))
+    return str(prepare_utility_model(str(defended_path)))
 
 
 def write_report(mode: str, model_name_or_path: str, metrics: dict) -> Path:
@@ -46,7 +55,7 @@ def write_report(mode: str, model_name_or_path: str, metrics: dict) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["baseline", "defense"], required=True)
+    parser.add_argument("--mode", choices=["baseline", "defense", "utility"], required=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-gcg", action="store_true")
     args = parser.parse_args()
